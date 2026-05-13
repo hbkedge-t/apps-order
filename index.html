@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Booking | 2026 預約系統</title>
+    <meta name="description" content="專業、快速、簡便的 2026 預約系統，整合 WhatsApp 與 Google 日曆。">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="src/styles/main.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Navigation -->
+        <nav class="glass-nav">
+            <div class="nav-content">
+                <div class="logo">Premium<span>Booking</span></div>
+                <div class="nav-links">
+                    <a href="#home" class="nav-item active">首頁</a>
+                    <a href="#booking" class="nav-item">預約服務</a>
+                    <a href="#my-bookings" class="nav-item">我的預約</a>
+                    <a href="#admin" class="nav-item admin-link" style="display:none;">管理後台</a>
+                </div>
+                <div class="mobile-menu-btn">
+                    <i data-lucide="menu"></i>
+                </div>
+            </div>
+        </nav>
+
+        <main>
+            <!-- Home Section -->
+            <section id="home" class="page-section active">
+                <div class="hero">
+                    <h1 class="fade-in">極致預約體驗</h1>
+                    <p class="fade-in delay-1">整合 WhatsApp 通知，讓您的預約管理變得前所未有的簡單。</p>
+                    <div class="hero-btns fade-in delay-2">
+                        <button class="btn btn-primary" onclick="router.navigate('booking')">立即預約</button>
+                        <button class="btn btn-outline" onclick="router.navigate('my-bookings')">查看預約</button>
+                    </div>
+                </div>
+                
+                <div class="services-preview container">
+                    <h2 class="section-title">服務項目</h2>
+                    <div id="services-grid" class="grid">
+                        <!-- Services will be loaded here -->
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Booking Section -->
+            <section id="booking" class="page-section">
+                <div class="container narrow">
+                    <h2 class="section-title">選擇預約資訊</h2>
+                    <div class="booking-card glass">
+                        <div class="step-indicator">
+                            <div class="step active" data-step="1">1</div>
+                            <div class="step-line"></div>
+                            <div class="step" data-step="2">2</div>
+                            <div class="step-line"></div>
+                            <div class="step" data-step="3">3</div>
+                        </div>
+
+                        <form id="booking-form">
+                            <!-- Step 1: Service -->
+                            <div class="form-step active" id="step-1">
+                                <h3>選擇服務</h3>
+                                <div id="service-options" class="options-grid"></div>
+                                <div class="form-actions">
+                                    <button type="button" class="btn btn-primary next-step" disabled>下一步</button>
+                                </div>
+                            </div>
+
+                            <!-- Step 2: Date & Time -->
+                            <div class="form-step" id="step-2">
+                                <h3>選擇時間</h3>
+                                <div class="calendar-wrapper">
+                                    <input type="date" id="booking-date" class="form-input">
+                                </div>
+                                <div id="time-slots" class="options-grid slots-grid"></div>
+                                <div class="form-actions">
+                                    <button type="button" class="btn btn-outline prev-step">上一步</button>
+                                    <button type="button" class="btn btn-primary next-step" disabled>下一步</button>
+                                </div>
+                            </div>
+
+                            <!-- Step 3: Information -->
+                            <div class="form-step" id="step-3">
+                                <h3>填寫資料</h3>
+                                <div class="form-group">
+                                    <label for="user-name">姓名</label>
+                                    <input type="text" id="user-name" class="form-input" placeholder="您的姓名" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="user-phone">電話</label>
+                                    <input type="tel" id="user-phone" class="form-input" placeholder="0912345678" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="user-note">備註 (可選)</label>
+                                    <textarea id="user-note" class="form-input" rows="3"></textarea>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="button" class="btn btn-outline prev-step">上一步</button>
+                                    <button type="submit" class="btn btn-primary">確認預約</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- My Bookings Section -->
+            <section id="my-bookings" class="page-section">
+                <div class="container narrow">
+                    <h2 class="section-title">查詢我的預約</h2>
+                    <div class="glass-card">
+                        <div class="search-box">
+                            <input type="tel" id="search-phone" class="form-input" placeholder="輸入預約電話">
+                            <button class="btn btn-primary" id="btn-search">查詢</button>
+                        </div>
+                        <div id="booking-results" class="results-list">
+                            <div class="empty-state">請輸入電話號碼以查詢預約記錄</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Admin Dashboard -->
+            <section id="admin" class="page-section">
+                <div class="container">
+                    <h2 class="section-title">管理後台</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card glass">
+                            <div class="stat-value" id="stat-today-count">0</div>
+                            <div class="stat-label">今日預約</div>
+                        </div>
+                        <div class="stat-card glass">
+                            <div class="stat-value" id="stat-month-revenue">$0</div>
+                            <div class="stat-label">本月營收</div>
+                        </div>
+                        <div class="stat-card glass">
+                            <div class="stat-value" id="stat-customer-count">0</div>
+                            <div class="stat-label">總客戶數</div>
+                        </div>
+                    </div>
+                    <div class="glass-card mt-2">
+                        <h3>所有預約記錄</h3>
+                        <div class="table-responsive">
+                            <table id="admin-bookings-table">
+                                <thead>
+                                    <tr>
+                                        <th>日期</th>
+                                        <th>時間</th>
+                                        <th>服務</th>
+                                        <th>客戶</th>
+                                        <th>電話</th>
+                                        <th>狀態</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-bookings-list">
+                                    <!-- Admin data loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="glass-footer">
+            <div class="container">
+                <p>&copy; 2026 Premium Booking System. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="src/api/gas.js"></script>
+    <script src="src/app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>
