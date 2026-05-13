@@ -43,11 +43,12 @@ const router = {
         if (sectionId === 'booking') this.initBooking();
     },
 
-    initBooking() {
+    async initBooking() {
         if (state.services.length === 0) {
-            loadServices();
+            await loadServices();
         }
         updateBookingStep(1);
+        renderServiceOptions();
     }
 };
 
@@ -58,22 +59,32 @@ window.addEventListener('load', () => {
     router.navigate(initialHash);
 
     // Initial data load
-    loadServicesPreview();
+    loadServices();
 
     // Event Listeners
     setupEventListeners();
 });
 
-// Load Services for Home Page
-async function loadServicesPreview() {
+// Load Services
+async function loadServices() {
+    const container = document.getElementById('service-options');
+    const grid = document.getElementById('services-grid');
+    
+    if (container) container.innerHTML = '<div class="loader">讀取服務中...</div>';
+    
     try {
         const res = await api.get('getServices');
         if (res.status === 'success') {
             state.services = res.data;
             renderServicesGrid(res.data);
+            renderServiceOptions();
+        } else {
+            throw new Error(res.message || '未知錯誤');
         }
     } catch (err) {
         console.error('Failed to load services', err);
+        if (container) container.innerHTML = `<div class="error">載入失敗: ${err.message}</div>`;
+        if (grid) grid.innerHTML = `<div class="error">無法載入服務項目</div>`;
     }
 }
 
@@ -117,11 +128,18 @@ function updateBookingStep(step) {
 
 function renderServiceOptions() {
     const container = document.getElementById('service-options');
+    if (!container) return;
+
+    if (state.services.length === 0) {
+        container.innerHTML = '<div class="empty">目前無可用服務</div>';
+        return;
+    }
+
     container.innerHTML = state.services.map(s => `
         <div class="option-item ${state.booking.service?.service_id == s.service_id ? 'selected' : ''}" 
-             onclick="selectService(${s.service_id})">
+             onclick="selectService('${s.service_id}')">
             <h4>${s.name}</h4>
-            <p>$${s.price} | ${s.duration} min</p>
+            <p>$${s.price} | ${s.duration} 分鐘</p>
         </div>
     `).join('');
     

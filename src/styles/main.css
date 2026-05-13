@@ -381,3 +381,27 @@ td {
     color: rgba(255, 255, 255, 0.5);
     margin-top: 4rem;
 }
+/* Feedback States */
+.loader {
+    text-align: center;
+    padding: 2rem;
+    color: var(--primary);
+    font-weight: 600;
+    grid-column: 1 / -1;
+}
+
+.error {
+    background: #fee2e2;
+    color: #b91c1c;
+    padding: 1rem;
+    border-radius: 12px;
+    text-align: center;
+    grid-column: 1 / -1;
+}
+
+.empty {
+    text-align: center;
+    padding: 2rem;
+    color: #64748b;
+    grid-column: 1 / -1;
+}
