@@ -98,7 +98,9 @@ function renderServicesGrid(services) {
             <button class="btn btn-primary btn-sm" style="margin-top: 1rem; width: 100%;">預約</button>
         </div>
     `).join('');
-    lucide.createIcons();
+    if (window.lucide) {
+        lucide.createIcons();
+    }
 }
 
 function startBooking(serviceId) {
