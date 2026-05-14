@@ -6,10 +6,24 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbyd1ykaY_RIr5bkZxz1aNmj
 const gasApi = {
     async get(action, params = {}) {
         const queryParams = new URLSearchParams({ action, ...params }).toString();
+        const url = `${GAS_URL}?${queryParams}`;
+        
         try {
-            const response = await fetch(`${GAS_URL}?${queryParams}`);
-            if (!response.ok) throw new Error('Network response was not ok');
-            return await response.json();
+            const response = await fetch(url, {
+                method: 'GET',
+                mode: 'cors',
+                redirect: 'follow'
+            });
+            
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('GAS returned non-JSON content:', text);
+                throw new Error('回傳格式錯誤，請檢查 GAS 是否正確部署為「任何人」均可存取');
+            }
         } catch (error) {
             console.error('API GET Error:', error);
             throw error;
