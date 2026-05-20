@@ -91,11 +91,14 @@ async function loadServices() {
 function renderServicesGrid(services) {
     const grid = document.getElementById('services-grid');
     grid.innerHTML = services.map(s => `
-        <div class="option-item glass-card" onclick="startBooking(${s.service_id})">
-            <h4>${s.name}</h4>
-            <p class="price">$${s.price}</p>
-            <p class="duration"><i data-lucide="clock" size="14"></i> ${s.duration} 分鐘</p>
-            <button class="btn btn-primary btn-sm" style="margin-top: 1rem; width: 100%;">預約</button>
+        <div class="service-card" onclick="startBooking(${s.service_id})">
+            <img src="S__13189122.jpg" alt="Service" class="service-card-img" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjBlNmU3Ii8+PC9zdmc+'" />
+            <div class="service-card-content">
+                <h4 class="service-card-title">${s.name}</h4>
+                <p class="service-card-meta">Today <span class="service-card-meta-dot"></span> $${s.price} <span class="service-card-meta-dot"></span> ${s.duration} mins</p>
+                <div class="service-badge">LAST MINUTE</div>
+            </div>
+            <div class="service-discount">預約</div>
         </div>
     `).join('');
     if (window.lucide) {
@@ -138,10 +141,14 @@ function renderServiceOptions() {
     }
 
     container.innerHTML = state.services.map(s => `
-        <div class="option-item ${state.booking.service?.service_id == s.service_id ? 'selected' : ''}" 
+        <div class="service-card ${state.booking.service?.service_id == s.service_id ? 'selected' : ''}" 
              onclick="selectService('${s.service_id}')">
-            <h4>${s.name}</h4>
-            <p>$${s.price} | ${s.duration} 分鐘</p>
+            <img src="S__13189122.jpg" alt="Service" class="service-card-img" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjBlNmU3Ii8+PC9zdmc+'" />
+            <div class="service-card-content">
+                <h4 class="service-card-title">${s.name}</h4>
+                <p class="service-card-meta">Today <span class="service-card-meta-dot"></span> $${s.price} <span class="service-card-meta-dot"></span> ${s.duration} mins</p>
+                <div class="service-badge">選擇</div>
+            </div>
         </div>
     `).join('');
     
