@@ -484,14 +484,10 @@ td {
 
 .date-scroll-container {
     display: flex;
-    overflow-x: auto;
+    flex-wrap: wrap;
     gap: 1rem;
     padding-bottom: 1rem;
     margin-bottom: 1rem;
-    scrollbar-width: none; /* Firefox */
-}
-.date-scroll-container::-webkit-scrollbar {
-    display: none; /* Safari and Chrome */
 }
 .date-item {
     display: flex;
