@@ -10,7 +10,6 @@ const state = {
         service: null,
         date: '',
         time: '',
-        availableSlots: [],
         name: '',
         phone: '',
         note: ''
@@ -150,7 +149,7 @@ function renderDateList() {
 
     const dates = [];
     const today = new Date();
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 31; i++) {
         const d = new Date(today);
         d.setDate(today.getDate() + i);
         dates.push(d);
@@ -236,7 +235,6 @@ async function loadAvailableSlots() {
         });
         
         if (res.status === 'success') {
-            state.booking.availableSlots = res.data;
             renderTimeSlots(res.data);
         }
     } catch (err) {
@@ -263,7 +261,8 @@ function renderTimeSlots(slots) {
 
 function selectTime(time) {
     state.booking.time = time;
-    renderTimeSlots(state.booking.availableSlots || []);
+    renderTimeSlots(document.querySelectorAll('.slot-item').length > 0 ? 
+        Array.from(document.querySelectorAll('.slot-item')).map(el => el.innerText.trim()) : []);
 }
 
 function validateStep2() {
