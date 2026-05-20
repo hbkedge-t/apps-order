@@ -10,6 +10,7 @@ const state = {
         service: null,
         date: '',
         time: '',
+        availableSlots: [],
         name: '',
         phone: '',
         note: ''
@@ -129,6 +130,60 @@ function updateBookingStep(step) {
     document.querySelectorAll('.form-step').forEach((el, index) => {
         el.classList.toggle('active', index + 1 === step);
     });
+
+    if (step === 2) {
+        if (!state.booking.date) {
+            const today = new Date();
+            const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            state.booking.date = dateStr;
+            const input = document.getElementById('booking-date');
+            if (input) input.value = dateStr;
+            loadAvailableSlots();
+        }
+        renderDateList();
+    }
+}
+
+function renderDateList() {
+    const list = document.getElementById('date-list');
+    if (!list) return;
+
+    const dates = [];
+    const today = new Date();
+    for (let i = 0; i < 14; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() + i);
+        dates.push(d);
+    }
+
+    const days = ['日', '一', '二', '三', '四', '五', '六'];
+
+    list.innerHTML = dates.map(d => {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${yyyy}-${mm}-${dd}`;
+        const dayName = days[d.getDay()];
+        const dayNum = d.getDate();
+        
+        return `
+            <div class="date-item ${state.booking.date === dateStr ? 'selected' : ''}" 
+                 onclick="selectDate('${dateStr}')">
+                <span class="date-day-name">${dayName}</span>
+                <span class="date-day-num">${dayNum}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function selectDate(dateStr) {
+    state.booking.date = dateStr;
+    const input = document.getElementById('booking-date');
+    if (input) {
+        input.value = dateStr;
+        input.dispatchEvent(new Event('change'));
+    }
+    renderDateList();
 }
 
 function renderServiceOptions() {
@@ -181,6 +236,7 @@ async function loadAvailableSlots() {
         });
         
         if (res.status === 'success') {
+            state.booking.availableSlots = res.data;
             renderTimeSlots(res.data);
         }
     } catch (err) {
@@ -207,8 +263,7 @@ function renderTimeSlots(slots) {
 
 function selectTime(time) {
     state.booking.time = time;
-    renderTimeSlots(document.querySelectorAll('.slot-item').length > 0 ? 
-        Array.from(document.querySelectorAll('.slot-item')).map(el => el.innerText.trim()) : []);
+    renderTimeSlots(state.booking.availableSlots || []);
 }
 
 function validateStep2() {
