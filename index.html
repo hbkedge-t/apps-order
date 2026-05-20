@@ -33,18 +33,17 @@
         <main>
             <!-- Home Section -->
             <section id="home" class="page-section active">
-                <div class="hero">
-                    <h1 class="fade-in">極致預約體驗</h1>
-                    <p class="fade-in delay-1">整合 WhatsApp 通知，讓您的預約管理變得前所未有的簡單。</p>
-                    <div class="hero-btns fade-in delay-2">
-                        <button class="btn btn-primary" onclick="router.navigate('booking')">立即預約</button>
-                        <button class="btn btn-outline" onclick="router.navigate('my-bookings')">查看預約</button>
+                <div class="container narrow" style="padding-top: 4rem;">
+                    <div style="margin-bottom: 2rem;">
+                        <h1 style="font-size: 3.5rem; color: var(--primary-dark); font-weight: 500; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; letter-spacing: -1px;">
+                            Today <span style="font-size: 2rem; color: var(--secondary);">✦</span>
+                        </h1>
+                        <p style="font-size: 1.25rem; color: var(--text); font-weight: 400; line-height: 1.4; max-width: 250px;">
+                            Last minute appointments near you
+                        </p>
                     </div>
-                </div>
-                
-                <div class="services-preview container">
-                    <h2 class="section-title">服務項目</h2>
-                    <div id="services-grid" class="grid">
+                    
+                    <div id="services-grid" class="options-grid">
                         <!-- Services will be loaded here -->
                         <div class="skeleton-card"></div>
                         <div class="skeleton-card"></div>
