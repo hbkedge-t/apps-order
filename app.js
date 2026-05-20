@@ -10,6 +10,7 @@ const state = {
         service: null,
         date: '',
         time: '',
+        availableSlots: [],
         name: '',
         phone: '',
         note: ''
@@ -235,6 +236,7 @@ async function loadAvailableSlots() {
         });
         
         if (res.status === 'success') {
+            state.booking.availableSlots = res.data;
             renderTimeSlots(res.data);
         }
     } catch (err) {
@@ -261,8 +263,7 @@ function renderTimeSlots(slots) {
 
 function selectTime(time) {
     state.booking.time = time;
-    renderTimeSlots(document.querySelectorAll('.slot-item').length > 0 ? 
-        Array.from(document.querySelectorAll('.slot-item')).map(el => el.innerText.trim()) : []);
+    renderTimeSlots(state.booking.availableSlots || []);
 }
 
 function validateStep2() {
