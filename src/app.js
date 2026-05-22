@@ -251,26 +251,38 @@ async function loadAvailableSlots() {
 }
 
 function renderTimeSlots(slots) {
+    if (slots) {
+        state.slots = slots;
+    } else {
+        slots = state.slots || [];
+    }
+
     const grid = document.getElementById('time-slots');
     if (slots.length === 0) {
         grid.innerHTML = '<div class="empty">此日期已無可預約時段</div>';
         return;
     }
     
-    grid.innerHTML = slots.map(slot => `
-        <div class="option-item slot-item ${state.booking.time === slot ? 'selected' : ''}" 
-             onclick="selectTime('${slot}')">
-            ${slot}
-        </div>
-    `).join('');
+    grid.innerHTML = slots.map(slot => {
+        const isObj = typeof slot === 'object';
+        const time = isObj ? slot.time : slot;
+        const available = isObj ? slot.available : true;
+        const isSelected = state.booking.time === time;
+        
+        return `
+            <div class="option-item slot-item ${isSelected ? 'selected' : ''} ${available ? '' : 'disabled'}" 
+                 ${available ? `onclick="selectTime('${time}')"` : ''}>
+                ${time}
+            </div>
+        `;
+    }).join('');
     
     validateStep2();
 }
 
 function selectTime(time) {
     state.booking.time = time;
-    renderTimeSlots(document.querySelectorAll('.slot-item').length > 0 ? 
-        Array.from(document.querySelectorAll('.slot-item')).map(el => el.innerText.trim()) : []);
+    renderTimeSlots();
 }
 
 function validateStep2() {
