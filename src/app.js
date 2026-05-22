@@ -149,27 +149,35 @@ function renderDateList() {
 
     const dates = [];
     const today = new Date();
-    for (let i = 0; i < 31; i++) {
-        const d = new Date(today);
-        d.setDate(today.getDate() + i);
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - today.getDay());
+
+    for (let i = 0; i < 42; i++) {
+        const d = new Date(startDate);
+        d.setDate(startDate.getDate() + i);
         dates.push(d);
     }
 
-    const days = ['日', '一', '二', '三', '四', '五', '六'];
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
 
-    list.innerHTML = dates.map(d => {
+    list.innerHTML = dates.map((d, i) => {
         const yyyy = d.getFullYear();
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
         const dateStr = `${yyyy}-${mm}-${dd}`;
-        const dayName = days[d.getDay()];
         const dayNum = d.getDate();
         
+        const dMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const isPast = dMidnight < todayMidnight;
+        
+        const showMonth = (dayNum === 1 || i === 0);
+        const displayDay = showMonth ? `${d.getMonth() + 1}/${dayNum}` : `${dayNum}`;
+        const labelClass = showMonth ? 'date-day-num month-start' : 'date-day-num';
+        
         return `
-            <div class="date-item ${state.booking.date === dateStr ? 'selected' : ''}" 
-                 onclick="selectDate('${dateStr}')">
-                <span class="date-day-name">${dayName}</span>
-                <span class="date-day-num">${dayNum}</span>
+            <div class="date-item ${state.booking.date === dateStr ? 'selected' : ''} ${isPast ? 'disabled' : ''}" 
+                 ${isPast ? '' : `onclick="selectDate('${dateStr}')"`}>
+                <span class="${labelClass}">${displayDay}</span>
             </div>
         `;
     }).join('');

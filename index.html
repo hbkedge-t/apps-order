@@ -55,7 +55,6 @@
             <!-- Booking Section -->
             <section id="booking" class="page-section">
                 <div class="container narrow">
-                    <h2 class="section-title">選擇預約資訊</h2>
                     <div class="booking-card glass">
                         <div class="step-indicator">
                             <div class="step active" data-step="1">1</div>
@@ -79,7 +78,16 @@
                             <div class="form-step" id="step-2">
                                 <h3>選擇時間</h3>
                                 <div class="calendar-wrapper">
-                                    <div id="date-list" class="date-scroll-container"></div>
+                                    <div class="calendar-header-grid">
+                                        <div class="calendar-header-day">日</div>
+                                        <div class="calendar-header-day">一</div>
+                                        <div class="calendar-header-day">二</div>
+                                        <div class="calendar-header-day">三</div>
+                                        <div class="calendar-header-day">四</div>
+                                        <div class="calendar-header-day">五</div>
+                                        <div class="calendar-header-day">六</div>
+                                    </div>
+                                    <div id="date-list" class="date-grid-container"></div>
                                     <input type="hidden" id="booking-date">
                                 </div>
                                 <div id="time-slots" class="options-grid slots-grid"></div>
