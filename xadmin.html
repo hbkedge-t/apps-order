@@ -750,6 +750,7 @@
         // State variables
         let bookingsList = [];
         let servicesList = [];
+        let schedulesList = [];
         let currentView = 'monthly'; // 'monthly' | 'weekly'
         let anchorDate = new Date(); // Anchor date for monthly / weekly navigation
         const defaultSlots = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
@@ -768,6 +769,17 @@
                 const servicesRes = await api.get('getServices');
                 if (servicesRes.status === 'success') {
                     servicesList = servicesRes.data;
+                }
+
+                // Get schedules
+                try {
+                    const schedulesRes = await api.get('getSchedules');
+                    if (schedulesRes.status === 'success') {
+                        schedulesList = schedulesRes.data;
+                    }
+                } catch (schedulesErr) {
+                    console.warn('Unable to load schedules, using empty list:', schedulesErr);
+                    schedulesList = [];
                 }
 
                 // Get bookings
@@ -927,7 +939,32 @@
                 // Bookings on this day
                 const dayBookings = bookingsList.filter(b => b.date === dateStr && b.status !== 'cancelled');
                 
-                if (dayBookings.length > 0) {
+                // Check if this day is closed
+                const isDateClosed = schedulesList.some(s => {
+                    const sDate = s.date;
+                    const formattedSDate = typeof sDate === 'string' ? sDate : getFormattedDateString(new Date(sDate));
+                    const isAvail = s.available === false || String(s.available).trim().toLowerCase() === 'false';
+                    return formattedSDate === dateStr && String(s.time).trim().toUpperCase() === 'ALL' && isAvail;
+                });
+
+                if (isDateClosed) {
+                    cell.style.backgroundColor = '#fef2f2';
+                    cell.style.borderColor = '#fecaca';
+                }
+
+                if (isDateClosed) {
+                    const bookingsContainer = document.createElement('div');
+                    bookingsContainer.className = 'cell-bookings';
+                    const badge = document.createElement('span');
+                    badge.className = 'cell-booking-badge';
+                    badge.style.backgroundColor = '#fee2e2';
+                    badge.style.color = '#ef4444';
+                    badge.style.border = '1px solid #fecaca';
+                    badge.style.textAlign = 'center';
+                    badge.innerText = '整日已關閉';
+                    bookingsContainer.appendChild(badge);
+                    cell.appendChild(bookingsContainer);
+                } else if (dayBookings.length > 0) {
                     const bookingsContainer = document.createElement('div');
                     bookingsContainer.className = 'cell-bookings';
 
@@ -1018,21 +1055,52 @@
                     cellContentDiv.className = 'scheduler-cell-content';
                     cellContentDiv.setAttribute('onclick', `zoomDay('${cellDateStr}')`);
 
+                    // Check if this date is closed
+                    const isDateClosed = schedulesList.some(s => {
+                        const sDate = s.date;
+                        const formattedSDate = typeof sDate === 'string' ? sDate : getFormattedDateString(new Date(sDate));
+                        const isAvail = s.available === false || String(s.available).trim().toLowerCase() === 'false';
+                        return formattedSDate === cellDateStr && String(s.time).trim().toUpperCase() === 'ALL' && isAvail;
+                    });
+                    
+                    // Check if this specific slot is closed
+                    const isSlotClosed = schedulesList.some(s => {
+                        const sDate = s.date;
+                        const formattedSDate = typeof sDate === 'string' ? sDate : getFormattedDateString(new Date(sDate));
+                        const isAvail = s.available === false || String(s.available).trim().toLowerCase() === 'false';
+                        return formattedSDate === cellDateStr && String(s.time).trim() === timeSlot && isAvail;
+                    });
+
                     // Filter bookings for this day & time slot
                     const slotBookings = bookingsList.filter(b => b.date === cellDateStr && b.time === timeSlot && b.status !== 'cancelled');
 
-                    slotBookings.forEach(b => {
+                    if (isDateClosed || isSlotClosed) {
                         const card = document.createElement('div');
-                        card.className = `schedule-card ${getPastelColorClass(b.service_name)}`;
-                        card.setAttribute('onclick', `event.stopPropagation(); zoomDay('${cellDateStr}')`); // Open detailed modal on click
-
+                        card.className = `schedule-card`;
+                        card.style.backgroundColor = isDateClosed ? '#fef2f2' : '#fff7ed';
+                        card.style.color = isDateClosed ? '#b91c1c' : '#c2410c';
+                        card.style.borderLeft = isDateClosed ? '4px solid #ef4444' : '4px solid #f97316';
+                        card.setAttribute('onclick', `event.stopPropagation(); zoomDay('${cellDateStr}')`);
                         card.innerHTML = `
-                            <div class="card-time-badge">${b.time}</div>
-                            <div class="card-name">${b.customer_name}</div>
-                            <div class="card-service">${b.service_name}</div>
+                            <div class="card-time-badge">${timeSlot}</div>
+                            <div class="card-name">${isDateClosed ? '整日已關閉' : '時段已關閉'}</div>
+                            <div class="card-service">管理設定</div>
                         `;
                         cellContentDiv.appendChild(card);
-                    });
+                    } else {
+                        slotBookings.forEach(b => {
+                            const card = document.createElement('div');
+                            card.className = `schedule-card ${getPastelColorClass(b.service_name)}`;
+                            card.setAttribute('onclick', `event.stopPropagation(); zoomDay('${cellDateStr}')`); // Open detailed modal on click
+
+                            card.innerHTML = `
+                                <div class="card-time-badge">${b.time}</div>
+                                <div class="card-name">${b.customer_name}</div>
+                                <div class="card-service">${b.service_name}</div>
+                            `;
+                            cellContentDiv.appendChild(card);
+                        });
+                    }
 
                     td.appendChild(cellContentDiv);
                     tr.appendChild(td);
@@ -1050,6 +1118,42 @@
             
             const list = document.getElementById('modal-slots-list');
             list.innerHTML = '';
+
+            // Check if this date is closed
+            const isDateClosed = schedulesList.some(s => {
+                const sDate = s.date;
+                const formattedSDate = typeof sDate === 'string' ? sDate : getFormattedDateString(new Date(sDate));
+                const isAvail = s.available === false || String(s.available).trim().toLowerCase() === 'false';
+                return formattedSDate === dateStr && String(s.time).trim().toUpperCase() === 'ALL' && isAvail;
+            });
+
+            // Add Close Date / Open Date button in the modal body (or top)
+            const dateActionDiv = document.createElement('div');
+            dateActionDiv.style.display = 'flex';
+            dateActionDiv.style.justifyContent = 'space-between';
+            dateActionDiv.style.alignItems = 'center';
+            dateActionDiv.style.padding = '0.5rem 0 1rem 0';
+            dateActionDiv.style.borderBottom = '2px solid rgba(0, 0, 0, 0.05)';
+            dateActionDiv.style.marginBottom = '1rem';
+
+            if (isDateClosed) {
+                dateActionDiv.innerHTML = `
+                    <span style="color:#ef4444; font-weight:600; display:flex; align-items:center; gap:0.25rem; font-size:0.9rem;">
+                        <i data-lucide="alert-triangle" style="width:18px; height:18px;"></i> 此日期已關閉，客戶無法預約
+                    </span>
+                    <button class="booking-cancel-btn" style="background:#dcfce7; color:#15803d;" onclick="toggleDateLock('${dateStr}', true)">
+                        <i data-lucide="play-circle" style="width:14px; height:14px;"></i> 開啟此日期
+                    </button>
+                `;
+            } else {
+                dateActionDiv.innerHTML = `
+                    <span style="color:var(--text-light); font-weight:500; font-size:0.9rem;">整日預約狀態：正常開放</span>
+                    <button class="booking-cancel-btn" onclick="toggleDateLock('${dateStr}', false)">
+                        <i data-lucide="stop-circle" style="width:14px; height:14px;"></i> 關閉此日期
+                    </button>
+                `;
+            }
+            list.appendChild(dateActionDiv);
 
             const dayBookings = bookingsList.filter(b => b.date === dateStr && b.status !== 'cancelled');
 
@@ -1071,7 +1175,23 @@
                 // Bookings in this slot (can have multiples)
                 const slotBookings = dayBookings.filter(b => b.time === slotTime);
 
-                if (slotBookings.length > 0) {
+                // Check if this specific slot is closed
+                const isSlotClosed = schedulesList.some(s => {
+                    const sDate = s.date;
+                    const formattedSDate = typeof sDate === 'string' ? sDate : getFormattedDateString(new Date(sDate));
+                    const isAvail = s.available === false || String(s.available).trim().toLowerCase() === 'false';
+                    return formattedSDate === dateStr && String(s.time).trim() === slotTime && isAvail;
+                });
+
+                if (isDateClosed) {
+                    // Whole date closed
+                    infoCol.innerHTML = `
+                        <div class="empty-slot-card" style="background:#fef2f2; border-color:#fecaca; color:#991b1b; width:100%;">
+                            <i data-lucide="alert-octagon" style="color:#ef4444; width:18px; height:18px;"></i>
+                            <span>整日已關閉（不可預約）</span>
+                        </div>
+                    `;
+                } else if (slotBookings.length > 0) {
                     slotBookings.forEach(b => {
                         const card = document.createElement('div');
                         card.className = `booking-detail-card ${getPastelColorClass(b.service_name)}`;
@@ -1105,12 +1225,35 @@
                         `;
                         infoCol.appendChild(card);
                     });
+                } else if (isSlotClosed) {
+                    // Specific slot closed
+                    infoCol.innerHTML = `
+                        <div class="empty-slot-card" style="background:#fff7ed; border-color:#ffedd5; color:#c2410c; display:flex; justify-content:space-between; align-items:center; width:100%;">
+                            <div style="display:flex; align-items:center; gap:0.5rem;">
+                                <i data-lucide="slash" style="color:#f97316; width:18px; height:18px;"></i>
+                                <span>時段已關閉（不可預約）</span>
+                            </div>
+                            <button class="booking-cancel-btn" style="background:#dcfce7; color:#15803d; padding:0.25rem 0.75rem;" onclick="toggleSlotLock('${dateStr}', '${slotTime}', true)">
+                                開啟時段
+                            </button>
+                        </div>
+                    `;
                 } else {
                     // Available row
                     infoCol.innerHTML = `
-                        <div class="empty-slot-card">
-                            <i data-lucide="check-circle" style="color:var(--pastel-green); width:18px; height:18px;"></i>
-                            <span>目前無預約</span>
+                        <div class="empty-slot-card" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                            <div style="display:flex; align-items:center; gap:0.5rem;">
+                                <i data-lucide="check-circle" style="color:var(--pastel-green); width:18px; height:18px;"></i>
+                                <span>目前無預約</span>
+                            </div>
+                            <div style="display:flex; gap:0.5rem;">
+                                <button class="booking-cancel-btn" style="background:var(--badge-bg); color:var(--primary);" onclick="showManualBookingForm('${dateStr}', '${slotTime}')">
+                                    <i data-lucide="plus-circle" style="width:14px; height:14px;"></i> 手動預約
+                                </button>
+                                <button class="booking-cancel-btn" style="background:#ffedd5; color:#c2410c;" onclick="toggleSlotLock('${dateStr}', '${slotTime}', false)">
+                                    <i data-lucide="slash" style="width:14px; height:14px;"></i> 關閉此時段
+                                </button>
+                            </div>
                         </div>
                     `;
                 }
@@ -1122,6 +1265,147 @@
             // Open Modal
             document.getElementById('daily-modal').style.display = 'flex';
             if (window.lucide) lucide.createIcons();
+        }
+
+        async function toggleDateLock(dateStr, isCurrentlyClosed) {
+            const actionText = isCurrentlyClosed ? '開啟' : '關閉';
+            const confirm = await Swal.fire({
+                title: `確定要${actionText}整個日期的預約嗎？`,
+                text: `${dateStr} 將被設定為${isCurrentlyClosed ? '正常開放' : '已關閉不接受預約'}。`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: isCurrentlyClosed ? '#15803d' : '#ef4444',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: `確定${actionText}`,
+                cancelButtonText: '返回'
+            });
+
+            if (confirm.isConfirmed) {
+                Swal.showLoading();
+                try {
+                    const res = await api.post('updateSchedule', {
+                        date: dateStr,
+                        time: 'ALL',
+                        available: isCurrentlyClosed
+                    });
+                    if (res.status === 'success') {
+                        await Swal.fire('設定成功', `該日期已${actionText}。`, 'success');
+                        closeDailyModal();
+                        await refreshData();
+                    } else {
+                        throw new Error(res.message);
+                    }
+                } catch (err) {
+                    Swal.fire('錯誤', '設定失敗：' + err.message, 'error');
+                }
+            }
+        }
+
+        async function toggleSlotLock(dateStr, slotTime, isCurrentlyClosed) {
+            const actionText = isCurrentlyClosed ? '開啟' : '關閉';
+            const confirm = await Swal.fire({
+                title: `確定要${actionText}此時段的預約嗎？`,
+                text: `${dateStr} ${slotTime} 將被設定為${isCurrentlyClosed ? '正常開放' : '已關閉不接受預約'}。`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: isCurrentlyClosed ? '#15803d' : '#ef4444',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: `確定${actionText}`,
+                cancelButtonText: '返回'
+            });
+
+            if (confirm.isConfirmed) {
+                Swal.showLoading();
+                try {
+                    const res = await api.post('updateSchedule', {
+                        date: dateStr,
+                        time: slotTime,
+                        available: isCurrentlyClosed
+                    });
+                    if (res.status === 'success') {
+                        await Swal.fire('設定成功', `該時段已${actionText}。`, 'success');
+                        closeDailyModal();
+                        await refreshData();
+                    } else {
+                        throw new Error(res.message);
+                    }
+                } catch (err) {
+                    Swal.fire('錯誤', '設定失敗：' + err.message, 'error');
+                }
+            }
+        }
+
+        async function showManualBookingForm(date, time) {
+            const serviceOptions = servicesList.map(s => `<option value="${s.service_id}">${s.name} ($${s.price} / ${s.duration}分鐘)</option>`).join('');
+            
+            const { value: formValues } = await Swal.fire({
+                title: `手動預約 - ${date} ${time}`,
+                html: `
+                    <div style="text-align:left; margin-bottom:10px;">
+                        <label for="swal-cust-name" style="font-weight:600; display:block; margin-bottom:5px; font-size:0.9rem;">客戶姓名 *</label>
+                        <input id="swal-cust-name" class="swal2-input" placeholder="請輸入姓名" style="margin:0; width:100%; height:40px; font-size:0.9rem;">
+                    </div>
+                    <div style="text-align:left; margin-bottom:10px;">
+                        <label for="swal-cust-phone" style="font-weight:600; display:block; margin-bottom:5px; font-size:0.9rem;">客戶電話 *</label>
+                        <input id="swal-cust-phone" class="swal2-input" placeholder="例如: 0912345678" style="margin:0; width:100%; height:40px; font-size:0.9rem;">
+                    </div>
+                    <div style="text-align:left; margin-bottom:10px;">
+                        <label for="swal-cust-service" style="font-weight:600; display:block; margin-bottom:5px; font-size:0.9rem;">服務項目 *</label>
+                        <select id="swal-cust-service" class="swal2-select" style="margin:0; width:100%; display:block; height:40px; font-size:0.9rem;">
+                            ${serviceOptions}
+                        </select>
+                    </div>
+                    <div style="text-align:left; margin-bottom:10px;">
+                        <label for="swal-cust-note" style="font-weight:600; display:block; margin-bottom:5px; font-size:0.9rem;">備註</label>
+                        <textarea id="swal-cust-note" class="swal2-textarea" placeholder="備註事項" style="margin:0; width:100%; height:60px; font-size:0.9rem;"></textarea>
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: '確認預約',
+                cancelButtonText: '取消',
+                confirmButtonColor: 'var(--primary)',
+                preConfirm: () => {
+                    const name = document.getElementById('swal-cust-name').value.trim();
+                    const phone = document.getElementById('swal-cust-phone').value.trim();
+                    const serviceId = document.getElementById('swal-cust-service').value;
+                    const note = document.getElementById('swal-cust-note').value.trim();
+                    
+                    if (!name) {
+                        Swal.showValidationMessage('請輸入客戶姓名');
+                        return false;
+                    }
+                    if (!phone) {
+                        Swal.showValidationMessage('請輸入客戶電話');
+                        return false;
+                    }
+                    return { name, phone, serviceId, note };
+                }
+            });
+
+            if (formValues) {
+                Swal.showLoading();
+                try {
+                    const res = await api.post('createBooking', {
+                        serviceId: formValues.serviceId,
+                        date: date,
+                        time: time,
+                        name: formValues.name,
+                        phone: formValues.phone,
+                        note: formValues.note
+                    });
+                    
+                    if (res.status === 'success') {
+                        await Swal.fire('預約成功', '手動預約已成功建立。', 'success');
+                        closeDailyModal();
+                        await refreshData();
+                    } else {
+                        throw new Error(res.message);
+                    }
+                } catch (err) {
+                    Swal.fire('預約失敗', '錯誤：' + err.message, 'error');
+                }
+            }
         }
 
         function closeDailyModal() {
