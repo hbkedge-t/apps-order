@@ -465,7 +465,7 @@ async function handleBookingSubmit(e) {
                 Swal.showLoading();
                 const res = await api.post('createBooking', {
                     serviceId: state.booking.service.service_id,
-                    serviceType: state.booking.service.type || '',
+                    type: state.activeCategory,
                     date: state.booking.date,
                     time: state.booking.time,
                     name: state.booking.name,
