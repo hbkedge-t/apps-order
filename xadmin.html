@@ -761,7 +761,12 @@
             <div id="crm-panel" class="view-panel glass">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
                     <h3>客戶 CRM 管理</h3>
-                    <input type="text" id="crm-search-input" placeholder="搜尋姓名或電話..." oninput="filterCRMCustomers()" style="padding: 0.6rem 1rem; border-radius: 50px; border: 1px solid var(--glass-border); width: 250px;">
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="text" id="crm-search-input" placeholder="搜尋姓名或電話..." oninput="filterCRMCustomers()" style="padding: 0.6rem 1rem; border-radius: 50px; border: 1px solid var(--glass-border); width: 250px;">
+                        <button class="booking-cancel-btn" onclick="openAddCustomerModal()" style="background: var(--primary); color: white; padding: 0.5rem 1.25rem; font-size: 0.9rem; border-radius: 50px;">
+                            <i data-lucide="user-plus" style="width: 16px; height: 16px;"></i> 新增客戶
+                        </button>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table>
@@ -1826,6 +1831,61 @@
 
         function filterCRMCustomers() {
             renderCRMCustomers();
+        }
+
+        async function openAddCustomerModal() {
+            const { value: formValues } = await Swal.fire({
+                title: '新增客戶',
+                html: `
+                    <div style="text-align:left; margin-bottom:10px;">
+                        <label style="font-weight:600; display:block; margin-bottom:5px; font-size:0.9rem;">客戶姓名 *</label>
+                        <input id="swal-cust-name" type="text" class="swal2-input" placeholder="例如: 王大明" style="margin:0; width:100%; height:40px; font-size:0.9rem;">
+                    </div>
+                    <div style="text-align:left; margin-bottom:10px;">
+                        <label style="font-weight:600; display:block; margin-bottom:5px; font-size:0.9rem;">聯絡電話 *</label>
+                        <input id="swal-cust-phone" type="tel" class="swal2-input" placeholder="例如: 0912345678" style="margin:0; width:100%; height:40px; font-size:0.9rem;">
+                    </div>
+                    <div style="text-align:left; margin-bottom:10px;">
+                        <label style="font-weight:600; display:block; margin-bottom:5px; font-size:0.9rem;">LINE ID (選填)</label>
+                        <input id="swal-cust-line" type="text" class="swal2-input" placeholder="例如: ming123" style="margin:0; width:100%; height:40px; font-size:0.9rem;">
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: '新增',
+                cancelButtonText: '取消',
+                preConfirm: () => {
+                    const name = document.getElementById('swal-cust-name').value.trim();
+                    const phone = document.getElementById('swal-cust-phone').value.trim();
+                    const line = document.getElementById('swal-cust-line').value.trim();
+                    
+                    if (!name) {
+                        Swal.showValidationMessage('請輸入客戶姓名');
+                        return false;
+                    }
+                    if (!phone) {
+                        Swal.showValidationMessage('請輸入聯絡電話');
+                        return false;
+                    }
+                    return { name, phone, line };
+                }
+            });
+
+            if (formValues) {
+                Swal.showLoading();
+                try {
+                    const res = await api.post('addCustomer', formValues);
+                    if (res.status === 'success') {
+                        await Swal.fire('新增成功', '客戶資料已建立', 'success');
+                        await refreshData();
+                        // 如果要在新增後自動開啟詳情，可以呼叫 openCRMModal(res.customerId)
+                    } else {
+                        throw new Error(res.message);
+                    }
+                } catch (err) {
+                    Swal.fire('錯誤', err.message, 'error');
+                }
+            }
         }
 
         async function openCRMModal(customerId) {

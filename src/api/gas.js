@@ -182,6 +182,20 @@ const mockApi = {
                     created_at: new Date()
                 });
                 return { status: 'success', bookingId: newBookingId };
+            case 'addCustomer':
+                const newCId = 'CUMOCK' + Date.now();
+                mockCustomers.push({
+                    id: newCId,
+                    name: data.name,
+                    phone: data.phone,
+                    line: data.line || '',
+                    created_at: new Date().toISOString(),
+                    birthday: '',
+                    tags: '',
+                    notes: '',
+                    balance: 0
+                });
+                return { status: 'success', customerId: newCId };
             case 'updateCustomerInfo':
                 const custToUpdate = mockCustomers.find(c => c.id === data.customerId);
                 if (custToUpdate) {
