@@ -396,9 +396,11 @@ function renderTimeSlots(slots) {
         const available = isObj ? slot.available : true;
         const isSelected = state.booking.time === time;
         
+        const onClickAttr = available ? `onclick="selectTime('${time}')"` : `onclick="Swal.fire('已有預約', '此時段已被預約，請選擇其他時段。', 'warning')"`;
+        
         return `
             <div class="option-item slot-item ${isSelected ? 'selected' : ''} ${available ? '' : 'disabled'}" 
-                 ${available ? `onclick="selectTime('${time}')"` : ''}>
+                 ${onClickAttr}>
                 ${time}
             </div>
         `;
