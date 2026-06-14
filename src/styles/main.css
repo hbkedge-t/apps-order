@@ -482,23 +482,11 @@ td {
 
 
 
-.calendar-header-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 0.5rem;
-    text-align: center;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: var(--text-light);
-}
-.calendar-header-day {
-    padding: 0.25rem 0;
-    font-size: 0.9rem;
-}
-.date-grid-container {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 0.5rem;
+.date-scroll-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding-bottom: 1rem;
     margin-bottom: 1rem;
 }
 .date-item {
@@ -506,28 +494,18 @@ td {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 100%;
-    aspect-ratio: 1 / 1.1;
+    min-width: 65px;
+    height: 80px;
     background: white;
     border: 1px solid rgba(240, 215, 219, 0.8);
     border-radius: 16px;
     cursor: pointer;
     transition: all 0.2s ease;
+    flex-shrink: 0;
 }
 .date-item:hover {
     border-color: var(--primary);
     transform: translateY(-2px);
-}
-.date-item.disabled {
-    background: #f5eded;
-    color: #ccaeb2;
-    border-color: rgba(240, 215, 219, 0.3);
-    cursor: not-allowed;
-    opacity: 0.5;
-    pointer-events: none;
-}
-.date-item.disabled .date-day-num {
-    color: #ccaeb2;
 }
 .date-item.selected {
     background: var(--primary);
@@ -535,23 +513,68 @@ td {
     border-color: var(--primary);
     box-shadow: 0 4px 15px rgba(201, 123, 135, 0.3);
 }
+.date-item.selected .date-day-name,
 .date-item.selected .date-day-num {
     color: white;
 }
+.date-day-name {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    margin-bottom: 0.25rem;
+}
 .date-day-num {
-    font-size: 1.2rem;
+    font-size: 1.25rem;
     font-weight: 600;
     color: var(--text);
 }
-.date-day-num.month-start {
-    font-size: 0.9rem;
+
+.form-help {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-light);
+    line-height: 1.5;
 }
-.option-item.disabled, .slot-item.disabled {
-    background: #f5eded;
-    color: #ccaeb2;
-    border-color: rgba(240, 215, 219, 0.3);
-    cursor: not-allowed;
-    opacity: 0.5;
-    pointer-events: none;
+
+/* Service Category Tabs */
+.category-tabs {
+    display: flex;
+    gap: 0.75rem;
+    background: rgba(0, 0, 0, 0.03);
+    padding: 0.35rem;
+    border-radius: 50px;
+    width: fit-content;
+    margin: 0 auto 2rem auto;
+}
+
+.category-tab-btn {
+    border: none;
+    background: transparent;
+    padding: 0.6rem 1.5rem;
+    border-radius: 50px;
+    font-weight: 600;
+    color: var(--text-light);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 0.95rem;
+}
+
+.category-tab-btn:hover {
+    color: var(--primary);
+}
+
+.category-tab-btn.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(201, 123, 135, 0.25);
+}
+
+.addon-wrapper {
+    transition: all 0.3s ease;
+    animation: slideUp 0.3s ease-out;
+}
+
+.addon-item:hover {
+    opacity: 0.9;
 }
 

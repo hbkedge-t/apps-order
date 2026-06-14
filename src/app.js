@@ -8,13 +8,15 @@ const state = {
     booking: {
         step: 1,
         service: null,
+        addon_massage: false,
         date: '',
         time: '',
         name: '',
         phone: '',
         note: ''
     },
-    services: []
+    services: [],
+    activeCategory: '首次預約'
 };
 
 // Router
@@ -76,6 +78,11 @@ async function loadServices() {
         const res = await api.get('getServices');
         if (res.status === 'success') {
             state.services = res.data;
+            // Auto-set activeCategory to first type found in data (if current doesn't match any)
+            const availableTypes = [...new Set(res.data.map(s => s.type || '單堂'))];
+            if (availableTypes.length > 0 && !availableTypes.includes(state.activeCategory)) {
+                state.activeCategory = availableTypes[0];
+            }
             renderServicesGrid(res.data);
             renderServiceOptions();
         } else {
@@ -88,15 +95,54 @@ async function loadServices() {
     }
 }
 
+function changeHomepageCategory(cat) {
+    state.activeCategory = cat;
+    renderServicesGrid(state.services);
+}
+
 function renderServicesGrid(services) {
     const grid = document.getElementById('services-grid');
-    grid.innerHTML = services.map(s => `
+    if (!grid) return;
+    
+    // Add category tabs above the grid if they don't exist
+    let tabsContainer = document.getElementById('homepage-service-tabs');
+    if (!tabsContainer) {
+        tabsContainer = document.createElement('div');
+        tabsContainer.id = 'homepage-service-tabs';
+        tabsContainer.className = 'category-tabs';
+        grid.parentNode.insertBefore(tabsContainer, grid);
+    }
+    
+    // Derive categories dynamically from real data
+    const categories = [...new Set(services.map(s => s.type || '單堂'))];
+    // Keep a preferred order if those types exist
+    const preferredOrder = ['首次預約', '單堂', '包卡'];
+    const sortedCategories = [
+        ...preferredOrder.filter(c => categories.includes(c)),
+        ...categories.filter(c => !preferredOrder.includes(c))
+    ];
+
+    tabsContainer.innerHTML = sortedCategories.map(cat => `
+        <button class="category-tab-btn ${state.activeCategory === cat ? 'active' : ''}" 
+                onclick="changeHomepageCategory('${cat}')">
+            ${cat}
+        </button>
+    `).join('');
+    
+    const filteredServices = services.filter(s => (s.type || '單堂') === state.activeCategory);
+    
+    if (filteredServices.length === 0) {
+        grid.innerHTML = `<div class="empty">目前無此類別的服務</div>`;
+        return;
+    }
+
+    grid.innerHTML = filteredServices.map(s => `
         <div class="service-card" onclick="startBooking(${s.service_id})">
             <img src="S__13189122.jpg" alt="Service" class="service-card-img" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjBlNmU3Ii8+PC9zdmc+'" />
             <div class="service-card-content">
                 <h4 class="service-card-title">${s.name}</h4>
-                <p class="service-card-meta">Today <span class="service-card-meta-dot"></span> $${s.price} <span class="service-card-meta-dot"></span> ${s.duration} mins</p>
-                <div class="service-badge">LAST MINUTE</div>
+                <p class="service-card-meta">$${s.price} <span class="service-card-meta-dot"></span> ${s.duration} 分鐘</p>
+                <div class="service-badge">${s.type || '單堂'}</div>
             </div>
             <div class="service-discount">預約</div>
         </div>
@@ -107,7 +153,15 @@ function renderServicesGrid(services) {
 }
 
 function startBooking(serviceId) {
-    state.booking.service = state.services.find(s => s.service_id == serviceId);
+    const s = state.services.find(srv => srv.service_id == serviceId);
+    if (s) {
+        state.booking.service = s;
+        state.activeCategory = s.type || '單堂';
+        const isSingleOrPackage = s.type === '單堂' || s.type === '包卡' || !s.type;
+        if (!isSingleOrPackage) {
+            state.booking.addon_massage = false;
+        }
+    }
     router.navigate('booking');
     updateBookingStep(1);
     renderServiceOptions();
@@ -193,6 +247,15 @@ function selectDate(dateStr) {
     renderDateList();
 }
 
+function changeBookingCategory(cat) {
+    state.activeCategory = cat;
+    renderServiceOptions();
+}
+
+function toggleAddonMassage(checked) {
+    state.booking.addon_massage = checked;
+}
+
 function renderServiceOptions() {
     const container = document.getElementById('service-options');
     if (!container) return;
@@ -202,23 +265,87 @@ function renderServiceOptions() {
         return;
     }
 
-    container.innerHTML = state.services.map(s => `
-        <div class="service-card ${state.booking.service?.service_id == s.service_id ? 'selected' : ''}" 
-             onclick="selectService('${s.service_id}')">
-            <img src="S__13189122.jpg" alt="Service" class="service-card-img" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjBlNmU3Ii8+PC9zdmc+'" />
-            <div class="service-card-content">
-                <h4 class="service-card-title">${s.name}</h4>
-                <p class="service-card-meta">Today <span class="service-card-meta-dot"></span> $${s.price} <span class="service-card-meta-dot"></span> ${s.duration} mins</p>
-                <div class="service-badge">選擇</div>
-            </div>
-        </div>
+    // Add category tabs above the options if they don't exist
+    let tabsContainer = document.getElementById('booking-service-tabs');
+    if (!tabsContainer) {
+        tabsContainer = document.createElement('div');
+        tabsContainer.id = 'booking-service-tabs';
+        tabsContainer.className = 'category-tabs';
+        tabsContainer.style.marginBottom = '1.5rem';
+        container.parentNode.insertBefore(tabsContainer, container);
+    }
+    
+    // Derive categories dynamically from real data
+    const allTypes = [...new Set(state.services.map(s => s.type || '單堂'))];
+    const preferredOrder = ['首次預約', '單堂', '包卡'];
+    const sortedCategories = [
+        ...preferredOrder.filter(c => allTypes.includes(c)),
+        ...allTypes.filter(c => !preferredOrder.includes(c))
+    ];
+
+    tabsContainer.innerHTML = sortedCategories.map(cat => `
+        <button type="button" class="category-tab-btn ${state.activeCategory === cat ? 'active' : ''}" 
+                onclick="changeBookingCategory('${cat}')">
+            ${cat}
+        </button>
     `).join('');
+
+    const filteredServices = state.services.filter(s => (s.type || '單堂') === state.activeCategory);
+
+    let html = '';
+    if (filteredServices.length === 0) {
+        html = '<div class="empty">目前此類別無可用服務</div>';
+    } else {
+        html = filteredServices.map(s => `
+            <div class="service-card ${state.booking.service?.service_id == s.service_id ? 'selected' : ''}" 
+                 onclick="selectService('${s.service_id}')">
+                <img src="S__13189122.jpg" alt="Service" class="service-card-img" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjBlNmU3Ii8+PC9zdmc+'" />
+                <div class="service-card-content">
+                    <h4 class="service-card-title">${s.name}</h4>
+                    <p class="service-card-meta">Today <span class="service-card-meta-dot"></span> $${s.price} <span class="service-card-meta-dot"></span> ${s.duration} mins</p>
+                    <div class="service-badge">選擇</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    const s = state.booking.service;
+    const showAddon = s && (s.type === '單堂' || s.type === '包卡' || !s.type);
+    
+    let addonHtml = '';
+    if (showAddon) {
+        addonHtml = `
+            <div id="addon-section" class="addon-wrapper" style="margin-top: 1.5rem; padding: 1.5rem; background: var(--badge-bg); border-radius: var(--radius); border: 1px solid var(--glass-border); width: 100%;">
+                <h4 style="margin-bottom: 0.75rem; color: var(--primary-dark); font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+                    <i data-lucide="sparkles" style="width: 18px; height: 18px;"></i> 加購服務
+                </h4>
+                <label class="addon-item" style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; width: 100%;">
+                    <input type="checkbox" id="addon-massage-checkbox" ${state.booking.addon_massage ? 'checked' : ''} onchange="toggleAddonMassage(this.checked)" style="width: 20px; height: 20px; accent-color: var(--primary);">
+                    <div>
+                        <span style="font-weight: 600; color: var(--text);">加購 30 分鐘按摩服務</span>
+                        <span style="display: block; font-size: 0.85rem; color: var(--text-light); margin-top: 0.15rem;">預約時長將額外延長 30 分鐘</span>
+                    </div>
+                </label>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html + addonHtml;
+    
+    if (window.lucide) {
+        lucide.createIcons();
+    }
     
     validateStep1();
 }
 
 function selectService(id) {
     state.booking.service = state.services.find(s => s.service_id == id);
+    const s = state.booking.service;
+    const isSingleOrPackage = s && (s.type === '單堂' || s.type === '包卡' || !s.type);
+    if (!isSingleOrPackage) {
+        state.booking.addon_massage = false;
+    }
     renderServiceOptions();
 }
 
@@ -318,10 +445,12 @@ async function handleBookingSubmit(e) {
     state.booking.phone = document.getElementById('user-phone').value;
     state.booking.note = document.getElementById('user-note').value;
 
+    const serviceName = state.booking.service.name + (state.booking.addon_massage ? ' (+30分鐘按摩)' : '');
+
     Swal.fire({
         title: '確認預約內容',
         html: `
-            服務：${state.booking.service.name}<br>
+            服務：${serviceName}<br>
             時間：${state.booking.date} ${state.booking.time}<br>
             姓名：${state.booking.name}
         `,
@@ -340,7 +469,8 @@ async function handleBookingSubmit(e) {
                     time: state.booking.time,
                     name: state.booking.name,
                     phone: state.booking.phone,
-                    note: state.booking.note
+                    note: state.booking.note,
+                    addonMassage: state.booking.addon_massage ? '是' : '否'
                 });
 
                 if (res.status === 'success') {
@@ -387,17 +517,30 @@ function renderBookingResults(bookings) {
         return;
     }
 
-    resultsDiv.innerHTML = bookings.map(b => `
-        <div class="booking-item glass">
-            <div class="booking-info">
-                <strong>${b.date} ${b.time}</strong>
-                <span>狀態: ${b.status}</span>
+    resultsDiv.innerHTML = bookings.map(b => {
+        const addonText = b.addon_massage === '是' ? ' (+30分鐘按摩)' : '';
+        const statusText = b.status === 'confirmed' ? '已確認' : '已取消';
+        const statusBg = b.status === 'confirmed' ? '#dcfce7' : '#fee2e2';
+        const statusColor = b.status === 'confirmed' ? '#166534' : '#b91c1c';
+        
+        return `
+            <div class="booking-item glass" style="display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                    <strong style="font-size: 1.1rem; color: var(--text);">${b.date} ${b.time}</strong>
+                    <span class="service-badge" style="margin:0; background: ${statusBg}; color: ${statusColor};">
+                        ${statusText}
+                    </span>
+                </div>
+                <div style="color: var(--text-light); font-size: 0.95rem;">
+                    服務項目: <span style="color: var(--text); font-weight: 500;">${b.service_name}${addonText}</span>
+                </div>
+                ${b.note ? `<div style="color: var(--text-light); font-size: 0.95rem; background: rgba(0,0,0,0.02); padding: 0.5rem; border-radius: 6px; width: 100%;">備註: ${b.note}</div>` : ''}
+                ${b.status !== 'cancelled' ? `
+                    <button class="btn btn-outline" style="padding: 0.4rem 1rem; font-size: 0.85rem; border-radius: 50px; margin-top: 0.5rem;" onclick="cancelBooking('${b.booking_id}')">取消預約</button>
+                ` : ''}
             </div>
-            ${b.status !== 'cancelled' ? `
-                <button class="btn btn-sm btn-outline" onclick="cancelBooking('${b.booking_id}')">取消預約</button>
-            ` : ''}
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 async function cancelBooking(id) {
