@@ -154,6 +154,7 @@ const mockApi = {
                     customer_phone: data.phone,
                     service_id: data.serviceId,
                     service_name: s ? s.name : '未知服務',
+                    service_type: data.serviceType || (s ? s.type : '') || '',
                     price: s ? s.price : 0,
                     duration: s ? s.duration : 60,
                     date: data.date,
