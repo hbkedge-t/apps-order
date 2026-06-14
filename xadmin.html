@@ -689,6 +689,7 @@
                 <button class="tab-btn active" onclick="switchView('monthly')">月曆日曆檢視</button>
                 <button class="tab-btn" onclick="switchView('weekly')">週課表檢視</button>
                 <button class="tab-btn" onclick="switchView('services')">服務項目管理</button>
+                <button class="tab-btn" onclick="switchView('crm')">CRM 管理</button>
             </div>
 
             <!-- Date Navigation Control -->
@@ -755,6 +756,30 @@
                     </table>
                 </div>
             </div>
+
+            <!-- CRM Panel -->
+            <div id="crm-panel" class="view-panel glass">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                    <h3>客戶 CRM 管理</h3>
+                    <input type="text" id="crm-search-input" placeholder="搜尋姓名或電話..." oninput="filterCRMCustomers()" style="padding: 0.6rem 1rem; border-radius: 50px; border: 1px solid var(--glass-border); width: 250px;">
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>客戶名稱</th>
+                                <th>聯絡電話</th>
+                                <th>標籤</th>
+                                <th>儲值餘額</th>
+                                <th style="text-align: center;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="crm-list-tbody">
+                            <!-- CRM List loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -771,6 +796,29 @@
         </div>
     </div>
 
+    <!-- CRM Detail Modal -->
+    <div id="crm-modal" class="modal-overlay" style="display:none;" onclick="handleOverlayClick(event)">
+        <div class="modal-content glass" style="max-width: 800px; max-height: 90vh;">
+            <div class="modal-header">
+                <h3 id="crm-modal-title">客戶詳細資料</h3>
+                <button class="modal-close" onclick="closeCRMModal()">&times;</button>
+            </div>
+            
+            <div style="padding: 1rem 1.5rem; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--glass-border);">
+                <div class="tabs" style="margin-bottom: 0;">
+                    <button class="tab-btn active crm-tab" onclick="switchCRMTab('basic')">基本資料</button>
+                    <button class="tab-btn crm-tab" onclick="switchCRMTab('history')">預約紀錄</button>
+                    <button class="tab-btn crm-tab" onclick="switchCRMTab('finance')">儲值與消費</button>
+                    <button class="tab-btn crm-tab" onclick="switchCRMTab('packages')">套票管理</button>
+                </div>
+            </div>
+
+            <div class="modal-body" id="crm-modal-body" style="padding: 1.5rem;">
+                <!-- Dynamically populated based on active CRM tab -->
+            </div>
+        </div>
+    </div>
+
     <!-- GAS API integration -->
     <script src="src/api/gas.js?v=20260520_1"></script>
     <script>
@@ -778,7 +826,12 @@
         let bookingsList = [];
         let servicesList = [];
         let schedulesList = [];
-        let currentView = 'monthly'; // 'monthly' | 'weekly'
+        let crmCustomers = [];
+        let currentCRMCustomerId = null;
+        let currentCRMData = null;
+        let currentCRMTab = 'basic'; // basic, history, finance, packages
+
+        let currentView = 'monthly'; // 'monthly' | 'weekly' | 'services' | 'crm'
         let anchorDate = new Date(); // Anchor date for monthly / weekly navigation
         const defaultSlots = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
@@ -796,6 +849,16 @@
                 const servicesRes = await api.get('getServices');
                 if (servicesRes.status === 'success') {
                     servicesList = servicesRes.data;
+                }
+
+                // Get CRM customers
+                try {
+                    const custRes = await api.get('getAllCustomers');
+                    if (custRes.status === 'success') {
+                        crmCustomers = custRes.data;
+                    }
+                } catch (cErr) {
+                    console.warn('Unable to load CRM customers:', cErr);
                 }
 
                 // Get schedules
@@ -880,6 +943,10 @@
                 btns[2].classList.add('active');
                 document.getElementById('services-panel').classList.add('active');
                 if (dateNav) dateNav.style.visibility = 'hidden';
+            } else if (view === 'crm') {
+                if (btns[3]) btns[3].classList.add('active');
+                document.getElementById('crm-panel').classList.add('active');
+                if (dateNav) dateNav.style.visibility = 'hidden';
             }
 
             renderCurrentView();
@@ -890,7 +957,7 @@
             if (currentView === 'monthly') {
                 // Adjust month
                 anchorDate.setMonth(anchorDate.getMonth() + direction);
-            } else {
+            } else if (currentView === 'weekly') {
                 // Adjust week (7 days)
                 anchorDate.setDate(anchorDate.getDate() + (direction * 7));
             }
@@ -905,6 +972,8 @@
                 renderWeeklyScheduler();
             } else if (currentView === 'services') {
                 renderServicesList();
+            } else if (currentView === 'crm') {
+                renderCRMCustomers();
             }
         }
 
@@ -1715,6 +1784,312 @@
                     }
                 } catch (err) {
                     Swal.fire('刪除失敗', '錯誤：' + err.message, 'error');
+                }
+            }
+        }
+        // ==========================================
+        // CRM Logic
+        // ==========================================
+        function renderCRMCustomers() {
+            const tbody = document.getElementById('crm-list-tbody');
+            if (!tbody) return;
+            const searchVal = document.getElementById('crm-search-input').value.toLowerCase().trim();
+
+            let filtered = crmCustomers;
+            if (searchVal) {
+                filtered = crmCustomers.filter(c => (c.name && c.name.toLowerCase().includes(searchVal)) || (c.phone && c.phone.includes(searchVal)));
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-light); padding:2rem;">找不到相符的客戶資料</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(c => `
+                <tr>
+                    <td style="font-weight:600; color:var(--text);">${c.name || '未命名'}</td>
+                    <td>${c.phone || '-'}</td>
+                    <td>
+                        ${(c.tags || '').split(',').filter(t => t.trim()).map(t => `<span class="cell-booking-badge" style="background:#e0e7ff; color:#3730a3; padding:0.2rem 0.5rem; margin-right:4px;">${t.trim()}</span>`).join('')}
+                    </td>
+                    <td style="font-weight:600; color:var(--primary);">$${c.balance || 0}</td>
+                    <td style="text-align:center;">
+                        <button class="booking-cancel-btn" style="background:var(--badge-bg); color:var(--primary); padding:0.35rem 0.75rem;" onclick="openCRMModal('${c.id}')">
+                            <i data-lucide="eye" style="width:14px; height:14px;"></i> 檢視詳情
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function filterCRMCustomers() {
+            renderCRMCustomers();
+        }
+
+        async function openCRMModal(customerId) {
+            currentCRMCustomerId = customerId;
+            Swal.showLoading();
+            try {
+                const res = await api.get('getCustomerDetails', { customerId });
+                if (res.status === 'success') {
+                    currentCRMData = res.data;
+                    document.getElementById('crm-modal-title').innerText = `${currentCRMData.customer.name} 的詳細資料`;
+                    switchCRMTab('basic');
+                    document.getElementById('crm-modal').style.display = 'flex';
+                    Swal.close();
+                } else {
+                    throw new Error(res.message);
+                }
+            } catch (err) {
+                Swal.fire('錯誤', '無法取得客戶資料：' + err.message, 'error');
+            }
+        }
+
+        function closeCRMModal() {
+            document.getElementById('crm-modal').style.display = 'none';
+        }
+
+        function switchCRMTab(tab) {
+            currentCRMTab = tab;
+            const btns = document.querySelectorAll('.crm-tab');
+            btns.forEach(b => b.classList.remove('active'));
+            
+            if (tab === 'basic') btns[0].classList.add('active');
+            else if (tab === 'history') btns[1].classList.add('active');
+            else if (tab === 'finance') btns[2].classList.add('active');
+            else if (tab === 'packages') btns[3].classList.add('active');
+
+            renderCRMModalBody();
+        }
+
+        function renderCRMModalBody() {
+            const body = document.getElementById('crm-modal-body');
+            const cust = currentCRMData.customer;
+
+            if (currentCRMTab === 'basic') {
+                body.innerHTML = `
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div><label style="color:var(--text-light); font-size:0.85rem;">姓名</label><div style="font-weight:600;">${cust.name}</div></div>
+                        <div><label style="color:var(--text-light); font-size:0.85rem;">電話</label><div style="font-weight:600;">${cust.phone}</div></div>
+                        <div><label style="color:var(--text-light); font-size:0.85rem;">註冊日期</label><div>${cust.created_at ? cust.created_at.substring(0,10) : '-'}</div></div>
+                        <div>
+                            <label style="color:var(--text-light); font-size:0.85rem;">生日</label>
+                            <input type="date" id="crm-edit-birthday" class="swal2-input" value="${cust.birthday || ''}" style="margin:0; width:100%; height:36px; font-size:0.9rem;">
+                        </div>
+                    </div>
+                    <div style="margin-top:1rem;">
+                        <label style="color:var(--text-light); font-size:0.85rem;">客戶標籤 (請用逗號分隔)</label>
+                        <input type="text" id="crm-edit-tags" class="swal2-input" value="${cust.tags || ''}" placeholder="例如：VIP, 會遲到" style="margin:0; width:100%; height:36px; font-size:0.9rem;">
+                    </div>
+                    <div style="margin-top:1rem;">
+                        <label style="color:var(--text-light); font-size:0.85rem;">客戶備註</label>
+                        <textarea id="crm-edit-notes" class="swal2-textarea" style="margin:0; width:100%; height:80px; font-size:0.9rem;">${cust.notes || ''}</textarea>
+                    </div>
+                    <div style="margin-top:1.5rem; text-align:right;">
+                        <button class="btn btn-primary" onclick="saveCRMInfo()">儲存基本資料</button>
+                    </div>
+                `;
+            } else if (currentCRMTab === 'history') {
+                const bookings = currentCRMData.bookings;
+                if (bookings.length === 0) {
+                    body.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--text-light);">無預約紀錄</div>`;
+                } else {
+                    body.innerHTML = bookings.map(b => `
+                        <div class="booking-detail-card ${getPastelColorClass(b.service_name)}" style="margin-bottom:1rem;">
+                            <div class="booking-detail-header">
+                                <span class="booking-detail-title">${b.service_name}</span>
+                                <span style="font-size:0.8rem; font-weight:600;">${b.date} ${b.time}</span>
+                            </div>
+                            <div style="font-size:0.9rem; margin-top:0.5rem;">狀態：${b.status === 'cancelled' ? '已取消' : '已確認'}</div>
+                        </div>
+                    `).join('');
+                }
+            } else if (currentCRMTab === 'finance') {
+                const txs = currentCRMData.transactions;
+                body.innerHTML = `
+                    <div style="background:var(--badge-bg); padding:1.5rem; border-radius:16px; margin-bottom:1.5rem; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-size:0.85rem; color:var(--text-light); margin-bottom:0.25rem;">目前儲值餘額</div>
+                            <div style="font-size:2rem; font-weight:700; color:var(--primary);">$${cust.balance || 0}</div>
+                        </div>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button class="btn btn-primary" style="font-size:0.85rem; padding:0.5rem 1rem;" onclick="openTxModal('儲值')">手動儲值</button>
+                            <button class="btn btn-outline" style="font-size:0.85rem; padding:0.5rem 1rem; border-color:#ef4444; color:#ef4444;" onclick="openTxModal('扣款')">手動扣款</button>
+                        </div>
+                    </div>
+                    <h4 style="margin-bottom:1rem;">歷史紀錄</h4>
+                    ${txs.length === 0 ? '<div style="color:var(--text-light); text-align:center;">無歷史紀錄</div>' : 
+                      txs.map(t => `
+                        <div style="display:flex; justify-content:space-between; padding:0.75rem 0; border-bottom:1px solid #f1f5f9;">
+                            <div>
+                                <div style="font-weight:600;">${t.type} ${t.note ? `<span style="font-size:0.8rem; color:var(--text-light); font-weight:400;">(${t.note})</span>` : ''}</div>
+                                <div style="font-size:0.8rem; color:var(--text-light);">${t.created_at ? t.created_at.substring(0,16) : ''}</div>
+                            </div>
+                            <div style="font-weight:700; color:${t.type === '儲值' ? 'var(--primary)' : '#ef4444'};">
+                                ${t.type === '儲值' ? '+' : '-'}$${t.amount}
+                            </div>
+                        </div>
+                      `).join('')
+                    }
+                `;
+            } else if (currentCRMTab === 'packages') {
+                const pkgs = currentCRMData.packages;
+                body.innerHTML = `
+                    <div style="text-align:right; margin-bottom:1rem;">
+                        <button class="btn btn-primary" style="font-size:0.85rem; padding:0.5rem 1rem;" onclick="openAddPackageModal()">購買新套票</button>
+                    </div>
+                    ${pkgs.length === 0 ? '<div style="color:var(--text-light); text-align:center;">無套票紀錄</div>' : 
+                      pkgs.map(p => `
+                        <div class="booking-detail-card" style="border-left-color:var(--primary); background:#fff; margin-bottom:1rem;">
+                            <div class="booking-detail-header">
+                                <span class="booking-detail-title">${p.name}</span>
+                                <span style="background:var(--badge-bg); color:var(--primary); padding:0.2rem 0.6rem; border-radius:50px; font-weight:700; font-size:0.85rem;">剩餘 ${p.total_sessions - p.used_sessions} 堂</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem;">
+                                <div style="font-size:0.85rem; color:var(--text-light);">總堂數: ${p.total_sessions} / 已使用: ${p.used_sessions}</div>
+                                ${p.used_sessions < p.total_sessions ? `<button class="btn btn-outline" style="font-size:0.8rem; padding:0.3rem 0.8rem;" onclick="usePackageSession('${p.package_id}')">手動扣除1堂</button>` : `<span style="color:#ef4444; font-size:0.85rem; font-weight:600;">已用盡</span>`}
+                            </div>
+                        </div>
+                      `).join('')
+                    }
+                `;
+            }
+        }
+
+        async function saveCRMInfo() {
+            const birthday = document.getElementById('crm-edit-birthday').value;
+            const tags = document.getElementById('crm-edit-tags').value;
+            const notes = document.getElementById('crm-edit-notes').value;
+
+            Swal.showLoading();
+            try {
+                const res = await api.post('updateCustomerInfo', {
+                    customerId: currentCRMCustomerId,
+                    birthday, tags, notes
+                });
+                if (res.status === 'success') {
+                    await Swal.fire('儲存成功', '基本資料已更新', 'success');
+                    await openCRMModal(currentCRMCustomerId); // refresh modal data
+                    await refreshData(); // refresh background list
+                } else throw new Error(res.message);
+            } catch (err) {
+                Swal.fire('錯誤', err.message, 'error');
+            }
+        }
+
+        async function openTxModal(type) {
+            const { value: formValues } = await Swal.fire({
+                title: `手動${type}`,
+                html: `
+                    <div style="text-align:left; margin-bottom:10px;">
+                        <label style="font-weight:600; display:block; margin-bottom:5px; font-size:0.9rem;">金額 *</label>
+                        <input id="swal-tx-amt" type="number" class="swal2-input" placeholder="例如: 1000" style="margin:0; width:100%; height:40px; font-size:0.9rem;">
+                    </div>
+                    <div style="text-align:left; margin-bottom:10px;">
+                        <label style="font-weight:600; display:block; margin-bottom:5px; font-size:0.9rem;">備註說明</label>
+                        <input id="swal-tx-note" type="text" class="swal2-input" placeholder="例如: 購買保養品 / 儲值優惠" style="margin:0; width:100%; height:40px; font-size:0.9rem;">
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: '確認',
+                cancelButtonText: '取消',
+                preConfirm: () => {
+                    const amt = document.getElementById('swal-tx-amt').value;
+                    const note = document.getElementById('swal-tx-note').value;
+                    if (!amt || isNaN(amt) || parseFloat(amt) <= 0) {
+                        Swal.showValidationMessage('請輸入有效的金額');
+                        return false;
+                    }
+                    return { amount: amt, note };
+                }
+            });
+
+            if (formValues) {
+                Swal.showLoading();
+                try {
+                    const res = await api.post('addTransaction', {
+                        customerId: currentCRMCustomerId,
+                        type: type,
+                        amount: formValues.amount,
+                        note: formValues.note
+                    });
+                    if (res.status === 'success') {
+                        await Swal.fire('成功', `${type}成功`, 'success');
+                        await openCRMModal(currentCRMCustomerId);
+                        await refreshData();
+                    } else throw new Error(res.message);
+                } catch (err) {
+                    Swal.fire('錯誤', err.message, 'error');
+                }
+            }
+        }
+
+        async function openAddPackageModal() {
+            const { value: formValues } = await Swal.fire({
+                title: '新增套票',
+                html: `
+                    <div style="text-align:left; margin-bottom:10px;">
+                        <label style="font-weight:600; display:block; margin-bottom:5px; font-size:0.9rem;">套票名稱 *</label>
+                        <input id="swal-pkg-name" type="text" class="swal2-input" placeholder="例如: 美睫保養5堂" style="margin:0; width:100%; height:40px; font-size:0.9rem;">
+                    </div>
+                    <div style="text-align:left; margin-bottom:10px;">
+                        <label style="font-weight:600; display:block; margin-bottom:5px; font-size:0.9rem;">總堂數 *</label>
+                        <input id="swal-pkg-total" type="number" class="swal2-input" placeholder="例如: 5" style="margin:0; width:100%; height:40px; font-size:0.9rem;">
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: '新增',
+                cancelButtonText: '取消',
+                preConfirm: () => {
+                    const name = document.getElementById('swal-pkg-name').value;
+                    const total = document.getElementById('swal-pkg-total').value;
+                    if (!name) return Swal.showValidationMessage('請輸入套票名稱');
+                    if (!total || isNaN(total) || parseInt(total) <= 0) return Swal.showValidationMessage('請輸入有效的總堂數');
+                    return { name, totalSessions: total };
+                }
+            });
+
+            if (formValues) {
+                Swal.showLoading();
+                try {
+                    const res = await api.post('addPackage', {
+                        customerId: currentCRMCustomerId,
+                        name: formValues.name,
+                        totalSessions: formValues.totalSessions
+                    });
+                    if (res.status === 'success') {
+                        await Swal.fire('成功', '套票新增成功', 'success');
+                        await openCRMModal(currentCRMCustomerId);
+                    } else throw new Error(res.message);
+                } catch (err) {
+                    Swal.fire('錯誤', err.message, 'error');
+                }
+            }
+        }
+
+        async function usePackageSession(packageId) {
+            const confirm = await Swal.fire({
+                title: '確定要扣除 1 堂套票嗎？',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: '確定扣除',
+                cancelButtonText: '取消'
+            });
+
+            if (confirm.isConfirmed) {
+                Swal.showLoading();
+                try {
+                    const res = await api.post('usePackageSession', { packageId });
+                    if (res.status === 'success') {
+                        await Swal.fire('成功', '已扣除 1 堂套票', 'success');
+                        await openCRMModal(currentCRMCustomerId);
+                    } else throw new Error(res.message);
+                } catch (err) {
+                    Swal.fire('錯誤', err.message, 'error');
                 }
             }
         }

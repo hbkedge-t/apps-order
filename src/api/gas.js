@@ -57,6 +57,16 @@ let mockServices = [
     { service_id: 4, name: '包卡美睫保養（5堂）', duration: 90, price: 6000, type: '包卡' },
     { service_id: 5, name: '包卡手部美甲（3堂）', duration: 60, price: 3000, type: '包卡' }
 ];
+let mockCustomers = [
+    { id: 'CU_MOCK', name: '測試客戶', phone: '0912345678', line: 'test_line', created_at: new Date().toISOString(), birthday: '1990-01-01', tags: 'VIP,貓奴', notes: '不吃辣', balance: 1500 }
+];
+let mockTransactions = [
+    { transaction_id: 'TX1', customer_id: 'CU_MOCK', type: '儲值', amount: 3000, note: '首次儲值優惠', created_at: new Date().toISOString() },
+    { transaction_id: 'TX2', customer_id: 'CU_MOCK', type: '扣款', amount: 1500, note: '消費扣款', created_at: new Date().toISOString() }
+];
+let mockPackages = [
+    { package_id: 'PKG1', customer_id: 'CU_MOCK', name: '包卡美睫保養（5堂）', total_sessions: 5, used_sessions: 2, created_at: new Date().toISOString() }
+];
 
 let mockBookings = [
     { booking_id: 'BK001', customer_name: 'Clarice', customer_phone: '0912345678', service_id: 2, service_name: '單堂睫毛嫁接', price: 1500, duration: 90, date: '2026-06-15', time: '13:00', status: 'confirmed', note: '加強眼尾拉提', addon_massage: '是', created_at: new Date() },
@@ -121,6 +131,16 @@ const mockApi = {
                 return { status: 'error', message: 'Booking not found' };
             case 'getSchedules':
                 return { status: 'success', data: mockSchedules };
+            case 'getAllCustomers':
+                return { status: 'success', data: mockCustomers };
+            case 'getCustomerDetails':
+                const cId = params.customerId;
+                const cust = mockCustomers.find(c => c.id === cId);
+                if (!cust) return { status: 'error', message: 'Customer not found' };
+                const cBookings = mockBookings.filter(b => b.customer_id === cId || b.customer_phone === cust.phone);
+                const cTransactions = mockTransactions.filter(t => t.customer_id === cId);
+                const cPackages = mockPackages.filter(p => p.customer_id === cId);
+                return { status: 'success', data: { customer: cust, bookings: cBookings, transactions: cTransactions, packages: cPackages } };
             default:
                 return { status: 'success', data: [] };
         }
@@ -162,6 +182,50 @@ const mockApi = {
                     created_at: new Date()
                 });
                 return { status: 'success', bookingId: newBookingId };
+            case 'updateCustomerInfo':
+                const custToUpdate = mockCustomers.find(c => c.id === data.customerId);
+                if (custToUpdate) {
+                    if (data.birthday !== undefined) custToUpdate.birthday = data.birthday;
+                    if (data.tags !== undefined) custToUpdate.tags = data.tags;
+                    if (data.notes !== undefined) custToUpdate.notes = data.notes;
+                }
+                return { status: 'success' };
+            case 'addTransaction':
+                const txCust = mockCustomers.find(c => c.id === data.customerId);
+                if (txCust) {
+                    const amt = parseFloat(data.amount);
+                    if (data.type === '儲值') txCust.balance += amt;
+                    if (data.type === '扣款') txCust.balance -= amt;
+                    mockTransactions.push({
+                        transaction_id: 'TXM' + Date.now(),
+                        customer_id: data.customerId,
+                        type: data.type,
+                        amount: amt,
+                        note: data.note || '',
+                        created_at: new Date().toISOString()
+                    });
+                }
+                return { status: 'success' };
+            case 'addPackage':
+                mockPackages.push({
+                    package_id: 'PKGM' + Date.now(),
+                    customer_id: data.customerId,
+                    name: data.name,
+                    total_sessions: parseInt(data.totalSessions),
+                    used_sessions: 0,
+                    created_at: new Date().toISOString()
+                });
+                return { status: 'success' };
+            case 'usePackageSession':
+                const pkgToUse = mockPackages.find(p => p.package_id === data.packageId);
+                if (pkgToUse) {
+                    if (pkgToUse.used_sessions < pkgToUse.total_sessions) {
+                        pkgToUse.used_sessions += 1;
+                        return { status: 'success' };
+                    }
+                    return { status: 'error', message: '堂數已用盡' };
+                }
+                return { status: 'error', message: '找不到套票' };
             case 'addService':
                 const newId = mockServices.length > 0 ? Math.max(...mockServices.map(srv => srv.service_id)) + 1 : 1;
                 mockServices.push({
