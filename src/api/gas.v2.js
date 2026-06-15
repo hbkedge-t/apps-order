@@ -72,8 +72,8 @@ let mockPackages = [
 ];
 
 let mockBookings = [
-    { booking_id: 'BK001', customer_name: 'Clarice', customer_phone: '0912345678', service_id: 2, service_name: '單堂睫毛嫁接', price: 1500, duration: 90, date: '2026-06-15', time: '13:00', status: 'confirmed', note: '加強眼尾拉提', addon_massage: '是', created_at: new Date() },
-    { booking_id: 'BK002', customer_name: 'Amber', customer_phone: '0987654321', service_id: 1, service_name: '首次諮詢預約', price: 0, duration: 30, date: '2026-06-16', time: '13:00', status: 'confirmed', note: '無', addon_massage: '否', created_at: new Date() }
+    { booking_id: 'BK001', customer_name: 'Clarice', customer_phone: '0912345678', service_id: 2, service_name: '單堂睫毛嫁接', price: 1500, duration: 90, date: '2026-06-15', time: '13:00', status: 'confirmed', note: '加強眼尾拉提', addon_massage: '是', payment_status: '已付款', payment_method: '轉帳', created_at: new Date() },
+    { booking_id: 'BK002', customer_name: 'Amber', customer_phone: '0987654321', service_id: 1, service_name: '首次諮詢預約', price: 0, duration: 30, date: '2026-06-16', time: '13:00', status: 'confirmed', note: '無', addon_massage: '否', payment_status: '未收款', payment_method: '', created_at: new Date() }
 ];
 
 const mockApi = {
@@ -103,7 +103,9 @@ const mockApi = {
                         ...b,
                         service_name: s ? s.name : b.service_name,
                         price: s ? s.price : b.price,
-                        duration: s ? s.duration : b.duration
+                        duration: s ? s.duration : b.duration,
+                        payment_status: b.payment_status || '未收款',
+                        payment_method: b.payment_method || ''
                     };
                 })};
             case 'getUserBookings':
@@ -165,6 +167,14 @@ const mockApi = {
                     }
                 }
                 return { status: 'success' };
+            case 'checkoutBooking':
+                const bookingToPay = mockBookings.find(b => b.booking_id === data.bookingId);
+                if (bookingToPay) {
+                    bookingToPay.payment_status = '已付款';
+                    bookingToPay.payment_method = data.paymentMethod;
+                    return { status: 'success' };
+                }
+                return { status: 'error', message: '找不到此預約紀錄' };
             case 'createBooking':
                 const newBookingId = 'BK' + Date.now();
                 const s = mockServices.find(srv => srv.service_id == data.serviceId);

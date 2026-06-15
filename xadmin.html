@@ -690,6 +690,7 @@
                 <button class="tab-btn" onclick="switchView('weekly')">週課表檢視</button>
                 <button class="tab-btn" onclick="switchView('services')">服務項目管理</button>
                 <button class="tab-btn" onclick="switchView('crm')">CRM 管理</button>
+                <button class="tab-btn" onclick="switchView('finance')">財務對帳與報表</button>
             </div>
 
             <!-- Date Navigation Control -->
@@ -785,6 +786,73 @@
                     </table>
                 </div>
             </div>
+
+            <!-- Finance Panel -->
+            <div id="finance-panel" class="view-panel glass">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                    <h3>財務對帳與報表</h3>
+                    <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap: wrap;">
+                        <label for="finance-month-input" style="font-weight:600; font-size:0.9rem;">月份：</label>
+                        <input type="month" id="finance-month-input" onchange="renderFinancePanel()" style="padding: 0.5rem 1rem; border-radius: 50px; border: 1px solid var(--glass-border); color: var(--text);">
+                        <label for="finance-date-input" style="font-weight:600; font-size:0.9rem; margin-left:0.5rem;">日期：</label>
+                        <input type="date" id="finance-date-input" onchange="renderFinancePanel()" style="padding: 0.5rem 1rem; border-radius: 50px; border: 1px solid var(--glass-border); color: var(--text);">
+                        <button class="booking-cancel-btn" onclick="resetFinanceFilters()" style="background: var(--text-light); color: white; padding: 0.5rem 1rem; border-radius: 50px;">
+                            重設篩選
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Summary Row (Stats Cards) -->
+                <div class="stats-row" style="margin-bottom: 2rem;">
+                    <div class="stat-card glass" style="background: white;">
+                        <div class="stat-icon" style="background: #f0fdf4; color: #166534;"><i data-lucide="trending-up"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="finance-total-revenue">$0</span>
+                            <span class="stat-label">店家總業績 (已付款)</span>
+                        </div>
+                    </div>
+                    <div class="stat-card glass" style="background: white;">
+                        <div class="stat-icon" style="background: #e0f2fe; color: #0369a1;"><i data-lucide="banknote"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="finance-cash-total">$0</span>
+                            <span class="stat-label">現金收款總計</span>
+                        </div>
+                    </div>
+                    <div class="stat-card glass" style="background: white;">
+                        <div class="stat-icon" style="background: #f5f3ff; color: #5b21b6;"><i data-lucide="arrow-right-left"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="finance-transfer-total">$0</span>
+                            <span class="stat-label">轉帳收款總計</span>
+                        </div>
+                    </div>
+                    <div class="stat-card glass" style="background: white;">
+                        <div class="stat-icon" style="background: #fef2f2; color: #991b1b;"><i data-lucide="clock"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="finance-unpaid-total">$0</span>
+                            <span class="stat-label">未收款總計</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Report Content Tabs -->
+                <div style="display:flex; justify-content: space-between; border-bottom:1px solid var(--glass-border); padding-bottom: 0.75rem; margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem;">
+                    <div class="tabs" style="background:rgba(0,0,0,0.02); padding:0.25rem;">
+                        <button class="tab-btn active finance-sub-tab" onclick="switchFinanceSubTab('daily')">日報表</button>
+                        <button class="tab-btn finance-sub-tab" onclick="switchFinanceSubTab('monthly')">月報表</button>
+                        <button class="tab-btn finance-sub-tab" onclick="switchFinanceSubTab('overall')">總業績對帳單</button>
+                    </div>
+                    <div>
+                        <button class="booking-cancel-btn" style="background:#e2e8f0; color:#475569;" onclick="exportFinanceReport()">
+                            <i data-lucide="download" style="width:14px; height:14px; margin-right:4px;"></i> 匯出報表 (CSV)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sub View Containers -->
+                <div id="finance-sub-content">
+                    <!-- Tables loaded dynamically -->
+                </div>
+            </div>
         </div>
     </main>
 
@@ -843,6 +911,12 @@
         // On Load initialization
         window.addEventListener('DOMContentLoaded', async () => {
             if (window.lucide) lucide.createIcons();
+            // Set default date/month filters
+            const todayStr = getFormattedDateString(new Date());
+            const monthInput = document.getElementById('finance-month-input');
+            const dateInput = document.getElementById('finance-date-input');
+            if (monthInput) monthInput.value = todayStr.substring(0, 7);
+            if (dateInput) dateInput.value = todayStr;
             await refreshData();
         });
 
@@ -952,6 +1026,10 @@
                 if (btns[3]) btns[3].classList.add('active');
                 document.getElementById('crm-panel').classList.add('active');
                 if (dateNav) dateNav.style.visibility = 'hidden';
+            } else if (view === 'finance') {
+                if (btns[4]) btns[4].classList.add('active');
+                document.getElementById('finance-panel').classList.add('active');
+                if (dateNav) dateNav.style.visibility = 'hidden';
             }
 
             renderCurrentView();
@@ -979,6 +1057,8 @@
                 renderServicesList();
             } else if (currentView === 'crm') {
                 renderCRMCustomers();
+            } else if (currentView === 'finance') {
+                renderFinancePanel();
             }
         }
 
@@ -1315,12 +1395,28 @@
                         const addonBadge = b.addon_massage === '是' ? '<span class="cell-booking-badge" style="background:#e0f2fe; color:#0369a1; border: 1px solid #bae6fd; font-weight:600; margin-left:0.5rem; display:inline-block; vertical-align:middle; font-size:0.75rem;">+30分按摩</span>' : '';
                         const totalDuration = b.addon_massage === 'True' || b.addon_massage === '是' ? parseInt(b.duration) + 30 : b.duration;
 
+                        const isPaid = b.payment_status === '已付款';
+                        const paymentMethodLabel = isPaid ? ` (${b.payment_method})` : '';
+                        const payStatusBadge = isPaid 
+                            ? `<span class="cell-booking-badge" style="background:#dcfce7; color:#166534; border:1px solid #bbf7d0; font-weight:600; margin-left:0.5rem; display:inline-block; vertical-align:middle; font-size:0.75rem;">已付款${paymentMethodLabel}</span>` 
+                            : `<span class="cell-booking-badge" style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca; font-weight:600; margin-left:0.5rem; display:inline-block; vertical-align:middle; font-size:0.75rem;">未收款</span>`;
+
                         card.innerHTML = `
                             <div class="booking-detail-header">
-                                <span class="booking-detail-title">${b.service_name}${addonBadge}</span>
-                                <button class="booking-cancel-btn" onclick="cancelBooking('${b.booking_id}', '${dateStr}')">
-                                    <i data-lucide="x-circle" style="width:14px; height:14px;"></i> 取消預約
-                                </button>
+                                <span class="booking-detail-title">${b.service_name}${addonBadge}${payStatusBadge}</span>
+                                <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                                    ${!isPaid ? `
+                                        <button class="booking-cancel-btn" style="background:#dcfce7; color:#15803d; padding:0.35rem 0.75rem;" onclick="checkoutBooking('${b.booking_id}', '現金', '${dateStr}')">
+                                            現金收款
+                                        </button>
+                                        <button class="booking-cancel-btn" style="background:#e0f2fe; color:#0369a1; padding:0.35rem 0.75rem;" onclick="checkoutBooking('${b.booking_id}', '轉帳', '${dateStr}')">
+                                            轉帳收款
+                                        </button>
+                                    ` : ''}
+                                    <button class="booking-cancel-btn" onclick="cancelBooking('${b.booking_id}', '${dateStr}')">
+                                        <i data-lucide="x-circle" style="width:14px; height:14px;"></i> 取消預約
+                                    </button>
+                                </div>
                             </div>
                             <div class="booking-meta-row">
                                 <div class="booking-meta-item">
@@ -1337,7 +1433,7 @@
                                 </div>
                                 <div class="booking-meta-item">
                                     <i data-lucide="dollar-sign"></i>
-                                    <span>$${b.price}</span>
+                                    <span>$${(parseFloat(b.price) || 0).toLocaleString()}</span>
                                 </div>
                             </div>
                             ${b.note ? `<div class="booking-note-box"><strong>備註：</strong>${b.note}</div>` : ''}
@@ -2151,6 +2247,482 @@
                 } catch (err) {
                     Swal.fire('錯誤', err.message, 'error');
                 }
+            }
+        }
+
+        // --- Finance & Reconciliation Functions ---
+        let currentFinanceSubTab = 'daily';
+
+        async function checkoutBooking(bookingId, paymentMethod, dateStr) {
+            const confirm = await Swal.fire({
+                title: `確定要以【${paymentMethod}】收款嗎？`,
+                text: `將此預約標記為已付款。`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: 'var(--primary)',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: '確定收款',
+                cancelButtonText: '返回'
+            });
+
+            if (confirm.isConfirmed) {
+                Swal.showLoading();
+                try {
+                    const res = await api.post('checkoutBooking', { bookingId, paymentMethod });
+                    if (res.status === 'success') {
+                        await Swal.fire('收款成功', `已使用${paymentMethod}完成收款。`, 'success');
+                        closeDailyModal();
+                        await refreshData(); // refresh bookingsList & update stats
+                        // Re-open daily modal if dateStr is provided
+                        if (dateStr) {
+                            zoomDay(dateStr);
+                        }
+                    } else {
+                        throw new Error(res.message);
+                    }
+                } catch (err) {
+                    Swal.fire('錯誤', '收款失敗：' + err.message, 'error');
+                }
+            }
+        }
+
+        function resetFinanceFilters() {
+            const todayStr = getFormattedDateString(new Date());
+            const monthInput = document.getElementById('finance-month-input');
+            const dateInput = document.getElementById('finance-date-input');
+            if (monthInput) monthInput.value = todayStr.substring(0, 7);
+            if (dateInput) dateInput.value = todayStr;
+            renderFinancePanel();
+        }
+
+        function switchFinanceSubTab(subTab) {
+            currentFinanceSubTab = subTab;
+            const btns = document.querySelectorAll('.finance-sub-tab');
+            btns.forEach(btn => btn.classList.remove('active'));
+            if (subTab === 'daily') btns[0].classList.add('active');
+            else if (subTab === 'monthly') btns[1].classList.add('active');
+            else if (subTab === 'overall') btns[2].classList.add('active');
+            renderFinancePanel();
+        }
+
+        function renderFinancePanel() {
+            const selectedDate = document.getElementById('finance-date-input').value;
+            const selectedMonth = document.getElementById('finance-month-input').value;
+            
+            let filteredBookings = [];
+            let scopeLabel = "";
+            
+            if (currentFinanceSubTab === 'daily') {
+                filteredBookings = bookingsList.filter(b => b.date === selectedDate && b.status !== 'cancelled');
+                scopeLabel = `（日：${selectedDate}）`;
+            } else if (currentFinanceSubTab === 'monthly') {
+                filteredBookings = bookingsList.filter(b => b.date.startsWith(selectedMonth) && b.status !== 'cancelled');
+                scopeLabel = `（月：${selectedMonth}）`;
+            } else { // overall
+                filteredBookings = bookingsList.filter(b => b.status !== 'cancelled');
+                scopeLabel = `（全部累積）`;
+            }
+            
+            // Calculate sums
+            let totalRevenue = 0;
+            let cashTotal = 0;
+            let transferTotal = 0;
+            let unpaidTotal = 0;
+            
+            filteredBookings.forEach(b => {
+                const service = servicesList.find(s => s.service_id == b.service_id);
+                const price = service ? parseFloat(service.price) : (parseFloat(b.price) || 0);
+                
+                if (b.payment_status === '已付款') {
+                    totalRevenue += price;
+                    if (b.payment_method === '現金') {
+                        cashTotal += price;
+                    } else if (b.payment_method === '轉帳') {
+                        transferTotal += price;
+                    } else {
+                        cashTotal += price; // default fallback
+                    }
+                } else {
+                    unpaidTotal += price;
+                }
+            });
+            
+            // Update stats cards
+            document.getElementById('finance-total-revenue').innerText = `$${totalRevenue.toLocaleString()}`;
+            document.getElementById('finance-cash-total').innerText = `$${cashTotal.toLocaleString()}`;
+            document.getElementById('finance-transfer-total').innerText = `$${transferTotal.toLocaleString()}`;
+            document.getElementById('finance-unpaid-total').innerText = `$${unpaidTotal.toLocaleString()}`;
+            
+            // Update labels
+            const labels = document.querySelectorAll('.view-panel#finance-panel .stat-label');
+            if (labels.length >= 4) {
+                labels[0].innerText = `營業額 (已付款) ${scopeLabel}`;
+                labels[1].innerText = `現金收款總計 ${scopeLabel}`;
+                labels[2].innerText = `轉帳收款總計 ${scopeLabel}`;
+                labels[3].innerText = `未收款總計 ${scopeLabel}`;
+            }
+            
+            // Render sub tab content
+            const container = document.getElementById('finance-sub-content');
+            if (currentFinanceSubTab === 'daily') {
+                renderDailyReport(selectedDate, filteredBookings, container);
+            } else if (currentFinanceSubTab === 'monthly') {
+                renderMonthlyReport(selectedMonth, filteredBookings, container);
+            } else {
+                renderOverallReport(filteredBookings, container);
+            }
+            
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function renderDailyReport(date, bookings, container) {
+            if (bookings.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: var(--text-light); padding: 3rem;">${date} 沒有任何預約紀錄</div>`;
+                return;
+            }
+            
+            const sorted = [...bookings].sort((a, b) => a.time.localeCompare(b.time));
+            
+            let html = `
+                <h4 style="margin-bottom:1rem; font-weight:600;">本日預約明細 (${date})</h4>
+                <div class="table-responsive">
+                    <table style="width:100%; border-collapse:collapse;">
+                        <thead>
+                            <tr>
+                                <th>預約時段</th>
+                                <th>客戶姓名</th>
+                                <th>服務項目</th>
+                                <th>金額</th>
+                                <th>付款狀態</th>
+                                <th>付款方式</th>
+                                <th style="text-align:center;">對帳操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            sorted.forEach(b => {
+                const isPaid = b.payment_status === '已付款';
+                const statusBadge = isPaid
+                    ? `<span class="cell-booking-badge" style="background:#dcfce7; color:#166534; padding:0.25rem 0.75rem; border-radius:50px;">已付款</span>`
+                    : `<span class="cell-booking-badge" style="background:#fee2e2; color:#991b1b; padding:0.25rem 0.75rem; border-radius:50px;">未收款</span>`;
+                
+                const methodLabel = b.payment_method || '-';
+                
+                html += `
+                    <tr>
+                        <td style="font-weight:600;">${b.time}</td>
+                        <td>${b.customer_name}</td>
+                        <td>${b.service_name}</td>
+                        <td style="font-weight:600; color:var(--primary);">$${(parseFloat(b.price) || 0).toLocaleString()}</td>
+                        <td>${statusBadge}</td>
+                        <td style="font-weight:500;">${methodLabel}</td>
+                        <td style="text-align:center;">
+                            <div style="display:flex; gap:0.5rem; justify-content:center;">
+                                ${!isPaid ? `
+                                    <button class="booking-cancel-btn" style="background:#dcfce7; color:#15803d; padding:0.35rem 0.75rem;" onclick="checkoutBooking('${b.booking_id}', '現金', '${date}')">
+                                        現金收款
+                                    </button>
+                                    <button class="booking-cancel-btn" style="background:#e0f2fe; color:#0369a1; padding:0.35rem 0.75rem;" onclick="checkoutBooking('${b.booking_id}', '轉帳', '${date}')">
+                                        轉帳收款
+                                    </button>
+                                ` : `
+                                    <span style="color:var(--text-light); font-size:0.85rem;"><i data-lucide="check" style="width:14px; height:14px; vertical-align:middle;"></i> 對帳已完成</span>
+                                `}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        function renderMonthlyReport(monthStr, bookings, container) {
+            const daysInMonth = {};
+            const year = parseInt(monthStr.substring(0, 4));
+            const month = parseInt(monthStr.substring(5, 7)) - 1;
+            
+            const numDays = new Date(year, month + 1, 0).getDate();
+            
+            for (let d = 1; d <= numDays; d++) {
+                const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                daysInMonth[dayStr] = {
+                    date: dayStr,
+                    count: 0,
+                    revenue: 0,
+                    cash: 0,
+                    transfer: 0,
+                    unpaid: 0
+                };
+            }
+            
+            bookings.forEach(b => {
+                const date = b.date;
+                if (daysInMonth[date]) {
+                    const price = parseFloat(b.price) || 0;
+                    daysInMonth[date].count++;
+                    if (b.payment_status === '已付款') {
+                        daysInMonth[date].revenue += price;
+                        if (b.payment_method === '現金') {
+                            daysInMonth[date].cash += price;
+                        } else if (b.payment_method === '轉帳') {
+                            daysInMonth[date].transfer += price;
+                        } else {
+                            daysInMonth[date].cash += price;
+                        }
+                    } else {
+                        daysInMonth[date].unpaid += price;
+                    }
+                }
+            });
+            
+            const activeDays = Object.values(daysInMonth).filter(d => d.count > 0);
+            
+            if (activeDays.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: var(--text-light); padding: 3rem;">${monthStr} 月份無任何預約紀錄</div>`;
+                return;
+            }
+            
+            let html = `
+                <h4 style="margin-bottom:1rem; font-weight:600;">月份每日營收報表 (${monthStr})</h4>
+                <div class="table-responsive">
+                    <table style="width:100%; border-collapse:collapse;">
+                        <thead>
+                            <tr>
+                                <th>日期</th>
+                                <th>預約筆數</th>
+                                <th>已收營業額</th>
+                                <th>現金收款</th>
+                                <th>轉帳收款</th>
+                                <th>未收金額</th>
+                                <th style="text-align:center;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            activeDays.forEach(d => {
+                html += `
+                    <tr>
+                        <td style="font-weight:600;">${d.date}</td>
+                        <td>${d.count} 筆</td>
+                        <td style="font-weight:600; color:#166534;">$${d.revenue.toLocaleString()}</td>
+                        <td style="color:#0369a1;">$${d.cash.toLocaleString()}</td>
+                        <td style="color:#5b21b6;">$${d.transfer.toLocaleString()}</td>
+                        <td style="color:#991b1b;">$${d.unpaid.toLocaleString()}</td>
+                        <td style="text-align:center;">
+                            <button class="booking-cancel-btn" style="background:var(--badge-bg); color:var(--primary); padding:0.25rem 0.6rem; font-size:0.8rem;" onclick="viewDayFromReport('${d.date}')">
+                                檢視當日預約
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        function viewDayFromReport(date) {
+            const dateInput = document.getElementById('finance-date-input');
+            if (dateInput) dateInput.value = date;
+            switchFinanceSubTab('daily');
+        }
+
+        function renderOverallReport(bookings, container) {
+            if (bookings.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: var(--text-light); padding: 3rem;">系統中無任何預約紀錄</div>`;
+                return;
+            }
+            
+            const serviceBreakdown = {};
+            
+            servicesList.forEach(s => {
+                serviceBreakdown[s.service_id] = {
+                    name: s.name,
+                    price: parseFloat(s.price) || 0,
+                    count: 0,
+                    revenue: 0
+                };
+            });
+            
+            let totalPaidBookingsCount = 0;
+            let totalUnpaidBookingsCount = 0;
+            
+            bookings.forEach(b => {
+                const service = servicesList.find(s => s.service_id == b.service_id);
+                const price = service ? parseFloat(service.price) : (parseFloat(b.price) || 0);
+                const serviceId = b.service_id;
+                
+                if (!serviceBreakdown[serviceId]) {
+                    serviceBreakdown[serviceId] = {
+                        name: b.service_name || '未指定服務',
+                        price: price,
+                        count: 0,
+                        revenue: 0
+                    };
+                }
+                
+                serviceBreakdown[serviceId].count++;
+                if (b.payment_status === '已付款') {
+                    serviceBreakdown[serviceId].revenue += price;
+                    totalPaidBookingsCount++;
+                } else {
+                    totalUnpaidBookingsCount++;
+                }
+            });
+            
+            const sortedServices = Object.values(serviceBreakdown).sort((a, b) => b.revenue - a.revenue);
+            
+            let servicesHtml = sortedServices.map(s => {
+                if (s.count === 0) return '';
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:0.75rem 0; border-bottom:1px solid #f1f5f9;">
+                        <div>
+                            <span style="font-weight:600; color:var(--text);">${s.name}</span>
+                            <span style="font-size:0.85rem; color:var(--text-light); margin-left:0.5rem;">(${s.count} 次預約)</span>
+                        </div>
+                        <div style="font-weight:700; color:var(--primary);">$${s.revenue.toLocaleString()}</div>
+                    </div>
+                `;
+            }).join('');
+            
+            if (!servicesHtml) servicesHtml = '<div style="color:var(--text-light); text-align:center;">無服務業績資料</div>';
+            
+            container.innerHTML = `
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:1.5rem;">
+                    <!-- Left: Services Contribution -->
+                    <div class="glass" style="padding:1.5rem; background:white; border-radius:16px;">
+                        <h4 style="margin-bottom:1rem; font-weight:600; color:var(--text); display:flex; align-items:center; gap:0.5rem;">
+                            <i data-lucide="award" style="color:var(--primary);"></i> 服務項目業績與熱門排行
+                        </h4>
+                        <div style="max-height: 350px; overflow-y:auto; padding-right:0.5rem;">
+                            ${servicesHtml}
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Booking Payments statistics & summary -->
+                    <div class="glass" style="padding:1.5rem; background:white; border-radius:16px;">
+                        <h4 style="margin-bottom:1rem; font-weight:600; color:var(--text); display:flex; align-items:center; gap:0.5rem;">
+                            <i data-lucide="bar-chart-2" style="color:var(--primary);"></i> 店家收支與對帳統計
+                        </h4>
+                        
+                        <div style="display:flex; flex-direction:column; gap:1rem;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-weight:500;">已付款預約筆數</span>
+                                <span style="font-weight:600; color:#166534;">${totalPaidBookingsCount} 筆</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-weight:500;">未付款預約筆數</span>
+                                <span style="font-weight:600; color:#991b1b;">${totalUnpaidBookingsCount} 筆</span>
+                            </div>
+                            
+                            <div style="margin-top:1rem; border-top: 2px dashed #e2e8f0; padding-top: 1rem;">
+                                <h5 style="margin-bottom:0.75rem; font-weight:600; color:var(--text-light);">付款方式佔比</h5>
+                                
+                                <div style="display:flex; flex-direction:column; gap:0.75rem;">
+                                    <div>
+                                        <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:0.25rem;">
+                                            <span>現金支付</span>
+                                            <span id="cash-percentage-text">$0</span>
+                                        </div>
+                                        <div style="width:100%; height:8px; background:#f1f5f9; border-radius:4px; overflow:hidden;">
+                                            <div id="cash-progress-bar" style="height:100%; background:#0369a1; width:0%; transition: width 0.6s ease;"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:0.25rem;">
+                                            <span>線上轉帳</span>
+                                            <span id="transfer-percentage-text">$0</span>
+                                        </div>
+                                        <div style="width:100%; height:8px; background:#f1f5f9; border-radius:4px; overflow:hidden;">
+                                            <div id="transfer-progress-bar" style="height:100%; background:#5b21b6; width:0%; transition: width 0.6s ease;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const cashVal = parseFloat(document.getElementById('finance-cash-total').innerText.replace(/[$,]/g, '')) || 0;
+            const transferVal = parseFloat(document.getElementById('finance-transfer-total').innerText.replace(/[$,]/g, '')) || 0;
+            const paidSum = cashVal + transferVal;
+            
+            document.getElementById('cash-percentage-text').innerText = `$${cashVal.toLocaleString()}`;
+            document.getElementById('transfer-percentage-text').innerText = `$${transferVal.toLocaleString()}`;
+            
+            if (paidSum > 0) {
+                const cashPercent = (cashVal / paidSum) * 100;
+                const transferPercent = (transferVal / paidSum) * 100;
+                
+                setTimeout(() => {
+                    const cashBar = document.getElementById('cash-progress-bar');
+                    const transferBar = document.getElementById('transfer-progress-bar');
+                    if (cashBar) cashBar.style.width = `${cashPercent}%`;
+                    if (transferBar) transferBar.style.width = `${transferPercent}%`;
+                }, 100);
+            }
+        }
+
+        function exportFinanceReport() {
+            const selectedDate = document.getElementById('finance-date-input').value;
+            const selectedMonth = document.getElementById('finance-month-input').value;
+            
+            let filtered = [];
+            let filename = "財務報表";
+            
+            if (currentFinanceSubTab === 'daily') {
+                filtered = bookingsList.filter(b => b.date === selectedDate && b.status !== 'cancelled');
+                filename += `_日報表_${selectedDate}`;
+            } else if (currentFinanceSubTab === 'monthly') {
+                filtered = bookingsList.filter(b => b.date.startsWith(selectedMonth) && b.status !== 'cancelled');
+                filename += `_月報表_${selectedMonth}`;
+            } else {
+                filtered = bookingsList.filter(b => b.status !== 'cancelled');
+                filename += `_總業績對帳單`;
+            }
+            
+            if (filtered.length === 0) {
+                Swal.fire('無法匯出', '目前無資料可匯出', 'warning');
+                return;
+            }
+            
+            let csvContent = "\ufeff";
+            csvContent += "預約代號,日期,時段,客戶姓名,聯絡電話,服務項目,金額,付款狀態,付款方式,備註\n";
+            
+            filtered.forEach(b => {
+                const service = servicesList.find(s => s.service_id == b.service_id);
+                const price = service ? parseFloat(service.price) : (parseFloat(b.price) || 0);
+                const note = (b.note || '').replace(/"/g, '""');
+                
+                csvContent += `"${b.booking_id}","${b.date}","${b.time}","${b.customer_name}","${b.customer_phone}","${b.service_name}",${price},"${b.payment_status || '未收款'}","${b.payment_method || ''}","${note}"\n`;
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `${filename}.csv`);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
             }
         }
     </script>
